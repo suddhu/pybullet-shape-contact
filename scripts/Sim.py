@@ -5,10 +5,19 @@ import math
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.transforms as tfs
 import pdb
+from ik.helper import wraptopi, matrix_from_xyzrpy
+from config.shape_db import ShapeDB
+import tf.transformations as tfm
 
+fig, ax = plt.subplots()
+ax.axis('equal')
+plt.ion()
+plt.show()
 
-class KukaBlock():
+class Sim():
     def __init__(self, withVis=True):
         # connect to pybullet server
         if withVis:
@@ -23,13 +32,13 @@ class KukaBlock():
         self.planeId = p.loadURDF("plane.urdf", [0, 0, -0.05], useFixedBase=True)
 
         # add the robot at the origin with fixed base
-        self.kukaId = p.loadURDF("kuka_iiwa/model.urdf", [0, 0, 0], useFixedBase=True)
+        self.kukaId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/kuka_iiwa/model.urdf", [0, 0, 0], useFixedBase=True)
 
         # reset the base
         p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0], [0, 0, 0, 1])
 
         # get useful robot information
-        self.kukaEndEffectorIndex = 6
+        self.kukaEndEffectorIndex = 7
         self.numJoints = p.getNumJoints(self.kukaId)
 
         # add the block - we'll reset its position later
@@ -37,7 +46,7 @@ class KukaBlock():
         # p.resetBasePositionAndOrientation(self.blockId, [-0.4, 0, 0.1], [0, 0, 0, 1])
 
         # reset joint states to nominal pose
-        self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0]
+        self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0, 0]
         for i in range(self.numJoints):
             p.resetJointState(self.kukaId, i, self.rp[i])
 
@@ -52,7 +61,7 @@ class KukaBlock():
 
         # set joint damping
         #joint damping coefficents
-        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
         # set robot init config
         self.robotInitPoseCart = [-0.4, -0.2, 0.01] # (x,y,z)
@@ -68,8 +77,56 @@ class KukaBlock():
         # reset sim time
         self.t = 0
 
-    def simulate(self, theta=0.1):
+        self.shape_id = 'rect0'
+        shape_db = ShapeDB()
+        shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
+        self.shape_type = shape_db.shape_db[self.shape_id]['shape_type']
+        if self.shape_type == 'poly':
+            self.shape_polygon_3d = np.hstack((np.array(shape), np.zeros((len(shape), 1)), np.ones((len(shape), 1))))
+        elif self.shape_type == 'ellip':
+            self.shape = shape[0]
+        elif self.shape_type == 'polyapprox':
+            self.shape_polygon_3d = np.hstack((np.array(shape[0]), np.zeros((len(shape[0]), 1)), np.ones((len(shape[0]), 1))))
+    
+    def plotter(self, i): 
+        ax.clear()
+        # 1: plot object
+        xb = self.traj[i][2]
+        yb = self.traj[i][3]
+        t = self.traj[i][4]
 
+        T = matrix_from_xyzrpy([xb, yb, 0], [0, 0, t])
+
+        if self.shape_type == 'poly' or self.shape_type == 'polyapprox':
+            shape_polygon_3d_world = np.dot(T, self.shape_polygon_3d.T)
+            obj = patches.Polygon(shape_polygon_3d_world.T[:,0:2], closed=True, linewidth=2, linestyle='dashed', fill=False)
+        elif self.shape_type == 'ellip':
+            scale, shear, angles, trans, persp = tfm.decompose_matrix(T)
+            obj = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='solid')
+        ax.add_patch(obj)
+
+        circle = patches.Circle((self.traj[i][0], self.traj[i][1]), 0.020, facecolor="black", alpha=0.4)
+        ax.add_patch(circle)
+
+        # 2: plot contact point 
+        ax.plot(self.contactPt[i][0], self.contactPt[i][1], 'g*')
+
+        # 3: plot contact normal
+        ax.arrow(self.contactPt[i][0], self.contactPt[i][1], 
+            self.contactNormal[i][0]*0.01, self.contactNormal[i][1]*0.01, 
+            head_width=0.001, head_length=0.01, fc='y', ec='g')
+
+        plt.xlim(self.traj[0][2] - 0.25 , self.traj[0][2] + 0.25)
+        plt.ylim(self.traj[0][3] - 0.25 , self.traj[0][3] + 0.25)
+        plt.title(str(i))
+        plt.draw()
+        plt.pause(0.01)
+        # input("Press [enter] to continue.")
+        obj.remove()
+        circle.remove()
+
+    def simulate(self, theta=0.1):
+        
         pushDir = self.getPushDir(theta)
         pushStep = self.getPushStep()
 
@@ -93,7 +150,6 @@ class KukaBlock():
                                                       eePos,
                                                       self.orn,
                                                       jointDamping=self.jd)
-
             for i in range(self.numJoints):
                 p.setJointMotorControl2(bodyIndex=self.kukaId,
                                       jointIndex=i,
@@ -122,18 +178,20 @@ class KukaBlock():
                     f_c_temp += contactInfo[i][9]
                 
                 self.contactForce[simTime] = f_c_temp
-                self.contactPt[simTime, :] =  contactInfo[0][6]
+                self.contactPt[simTime, :] =  contactInfo[0][5]
                 self.contactNormal[simTime, :] = contactInfo[0][7]
                 self.contactCount[simTime] = len(contactInfo)
 
             self.traj[simTime, :] = np.array([x, y, xb, yb, yaw])
 
+            if (simTime % 100 == 0):
+                self.plotter(simTime)
+
         # contact force mask - get rid of trash in the beginning
         self.contactForce[:300] = 0
         self.contactNormal[:300, :] = 0
         self.contactPt[:300, :] = 0
-
-        return self.traj, self.contactPt, self.contactForce, self.contactNormal
+        return self.traj
 
     def resetSim(self, withRandom):
         # reset robot to nominal pose
@@ -163,7 +221,6 @@ class KukaBlock():
 
     def getPushDir(self, theta):
         # get unit direction of the push
-
         return np.array([math.sin(theta), math.cos(theta), 0.])
 
     def getPushStep(self):
@@ -171,5 +228,5 @@ class KukaBlock():
 
 
 if __name__ == "__main__":
-    kb = KukaBlock()
-    kb.simulate()
+    s = Sim()
+    s.simulate()
