@@ -54,16 +54,15 @@ class Sim():
         self.jointInds = [i for i in range(self.numJoints)]
 
         # set gravity
-        p.setGravity(0, 0, -10)
+        p.setGravity(0, 0, -9.8)
 
         # set simulation length
         self.simLength = 5000
 
-        # set joint damping
         #joint damping coefficents
         self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
-        # set robot init config
+        # set robot init config: start moving from here
         self.robotInitPoseCart = [-0.4, -0.2, 0.01] # (x,y,z)
         self.orn = p.getQuaternionFromEuler([0, -math.pi, 0])
 
@@ -72,7 +71,6 @@ class Sim():
         self.contactPt = np.zeros((self.simLength, 3))
         self.contactForce = np.zeros((self.simLength, ))
         self.contactNormal = np.zeros((self.simLength, 3))
-        self.contactCount = np.empty_like(self.contactForce)
 
         # reset sim time
         self.t = 0
@@ -177,10 +175,10 @@ class Sim():
                 for i in range(len(contactInfo)):
                     f_c_temp += contactInfo[i][9]
                 
+                print("f_c_temp: ", f_c_temp)
                 self.contactForce[simTime] = f_c_temp
                 self.contactPt[simTime, :] =  contactInfo[0][5]
                 self.contactNormal[simTime, :] = contactInfo[0][7]
-                self.contactCount[simTime] = len(contactInfo)
 
             self.traj[simTime, :] = np.array([x, y, xb, yb, yaw])
 
