@@ -32,23 +32,23 @@ class Sim():
         self.planeId = p.loadURDF("plane.urdf", [0, 0, -0.05], useFixedBase=True)
 
         # add the robot at the origin with fixed base
-        self.kukaId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/kuka_iiwa/model.urdf", [0, 0, 0], useFixedBase=True)
+        self.kukaId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/kuka_iiwa/model.urdf", [0, 0, 0.0], useFixedBase=True)
 
         # reset the base
-        p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0], [0, 0, 0, 1])
+        p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0.0], [0, 0, 0, 1])
 
         # get useful robot information
         self.kukaEndEffectorIndex = 7
         self.numJoints = p.getNumJoints(self.kukaId)
 
-        self.center_world = [-0.4, 0, 0]
+        self.center_world = [-0.6, 0, 0]
 
         self.block_level = 0.01
         self.safe_level = 0.50
 
         # add the block - we'll reset its position later
         self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/block_big.urdf", self.center_world)
-        # p.resetBasePositionAndOrientation(self.blockId, [-0.4, 0, 0.1], [0, 0, 0, 1])
+        # p.resetBasePositionAndOrientation(self.blockId, [-0.6, 0, 0.1], [0, 0, 0, 1])
 
         # reset joint states to nominal pose
         self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0, 0]
@@ -64,9 +64,10 @@ class Sim():
 
         # set simulation length
         self.simLength = 10000
+        self.limit = 1000
         self.step_size = 0.002
-        self.explore_radius = 0.30
-        self.init_prods = 10
+        self.explore_radius = 0.20
+        self.init_prods = 1
         if self.init_prods > 1 and self.init_prods % 2 == 1:  # correct it if not even nor 1
             self.init_prods += 1
 
@@ -78,7 +79,6 @@ class Sim():
         jmax = (self.init_prods+1) // 2
         kmax = 2 if self.init_prods > 1 else 1
         dth = 2*np.pi / self.init_prods
-        print(jmax, kmax)
         for j in range(jmax):
             for k in range(kmax):
                 i = j + k * (self.init_prods//2)
@@ -91,14 +91,14 @@ class Sim():
         self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
         # set robot init config: start moving from here
-        self.robotInitPoseCart = [-0.4, -0.2, 0.05] # (x,y,z)
+        self.robotInitPoseCart = [-0.6, -0.2, 0.05] # (x,y,z)
         self.orn = p.getQuaternionFromEuler([0, -math.pi, 0])
 
         # pre-define the trajectory/force vectors
         self.traj = np.zeros((self.simLength, 5))
-        self.contactPt = np.zeros((self.simLength, 3))
+        self.contactPt = np.zeros((self.simLength, 2))
         self.contactForce = np.zeros((self.simLength, ))
-        self.contactNormal = np.zeros((self.simLength, 3))
+        self.contactNormal = np.zeros((self.simLength, 2))
         self.threshold = 0.3  # the threshold force for contact, need to be tuned
 
         # reset sim time
@@ -121,6 +121,7 @@ class Sim():
         # 1: plot object
         xb = self.traj[i][2]
         yb = self.traj[i][3]
+        # t = wraptopi(self.traj[i][4])
         t = self.traj[i][4]
 
         T = matrix_from_xyzrpy([xb, yb, 0], [0, 0, t])
@@ -139,6 +140,7 @@ class Sim():
         # print('circle: ', self.traj[i][0], self.traj[i][1])
         if (self.contactPt[i][0] != 0) and (self.contactPt[i][1] != 0):                 
             # 2: plot contact point 
+            print(self.contactPt[i])
             ax.plot(self.contactPt[i][0], self.contactPt[i][1], 'r*',  markersize=12)
 
             # 3: plot contact normal
@@ -151,6 +153,7 @@ class Sim():
         plt.title('timestamp:' + str(i))
         plt.draw()
         plt.pause(0.001)
+
         # input("Press [enter] to continue.")
         # gt.remove()
         # probe.remove()
@@ -176,6 +179,7 @@ class Sim():
                                 
     def simulate(self):
 
+        scan_contact_pts = []
         self.simTime = 0
         # each rough probe
         for i, (start_pos, direc) in enumerate(reversed(self.start_configs)):
@@ -197,12 +201,10 @@ class Sim():
                 curr_pos = (np.array(curr_pos) + np.array(direc) * self.step_size).tolist()
 
                 eePos = curr_pos + [self.block_level]
-                # print(eePos)
                 path.append(eePos)
                 self.moveToPos(eePos) 
 
                 # get joint states
-                ls = p.getLinkState(self.kukaId, self.kukaEndEffectorIndex)
                 blockPose = p.getBasePositionAndOrientation(self.blockId)
                 xb = blockPose[0][0]
                 yb = blockPose[0][1]
@@ -219,8 +221,9 @@ class Sim():
                     
                     # print("f_c_temp: ", f_c_temp)
                     self.contactForce[self.simTime] = f_c_temp
-                    self.contactPt[self.simTime, :] =  contactInfo[0][5]
-                    self.contactNormal[self.simTime, :] = contactInfo[0][7]
+                    self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
+                    self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
+                    scan_contact_pts.append(contactInfo[0][5])
 
                 self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
 
@@ -234,6 +237,11 @@ class Sim():
                     print("~~~~~~~~~~~contact~~~~~~~~~~~ ", i)
 
                     revpath =  path[-len(path)//10:]
+
+                    # if the last one, stay in contact and do exploration from there.
+                    if i == (len(self.start_configs) - 1):
+                        break
+
                     for rev in reversed(revpath):
                         self.moveToPos(rev) 
                     break
@@ -248,6 +256,59 @@ class Sim():
                 j = j + 1
                 self.simTime = self.simTime + 1
 
+        if len(scan_contact_pts) == 0:
+            print("Error: Cannot touch the object")
+            return
+
+        good_normal = self.contactNormal[self.simTime - 1]
+        direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
+        # 3. Contour following, use the normal to move along the block
+        while True:
+            # 3.1 move 
+            # pdb.set_trace()
+            
+            curr_pos = (np.array(curr_pos) + np.array(direc) * self.step_size).tolist()
+            
+            eePos = curr_pos + [self.block_level]
+            self.moveToPos(eePos) 
+
+            # get joint states
+            blockPose = p.getBasePositionAndOrientation(self.blockId)
+            xb = blockPose[0][0]
+            yb = blockPose[0][1]
+            _, _, yaw = p.getEulerFromQuaternion(blockPose[1])
+            
+            # get contact information
+            contactInfo = p.getContactPoints(self.kukaId, self.blockId)
+
+            # get the net contact force between robot and block
+            if len(contactInfo)>0:
+                f_c_temp = 0
+                for c in range(len(contactInfo)):
+                    f_c_temp += contactInfo[c][9]
+                
+                # print("f_c_temp: ", f_c_temp)
+                self.contactForce[self.simTime] = f_c_temp
+                self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
+                self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
+                scan_contact_pts.append(contactInfo[0][5])
+                good_normal = self.contactNormal[self.simTime, :]
+                direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
+                print("contacts: ", len(scan_contact_pts))
+
+
+            self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
+
+            # plot
+            if (self.simTime % 1 == 0):
+                self.plotter(self.simTime)
+                
+            # increment counters
+            self.simTime = self.simTime + 1
+
+            # 3.5 break if we collect enough
+            if len(scan_contact_pts) > self.limit:
+                break
 
         return self.traj
 
@@ -259,7 +320,7 @@ class Sim():
         # reset block pose
         if withRandom:
             # define nominal block pose
-            nom_pose = np.array([-0.4, 0.0, 0.0]) # (x,y,theta)
+            nom_pose = np.array([-0.6, 0.0, 0.0]) # (x,y,theta)
 
             # define uncertainty bounds
             pos_bd = np.array([0.01, 0.01, 0.0])
@@ -274,7 +335,7 @@ class Sim():
             blockInitOri = p.getQuaternionFromEuler([0, 0, blockInitPose[-1]])
             p.resetBasePositionAndOrientation(self.blockId, [blockInitPose[0], blockInitPose[1], 0.0], blockInitOri)
         else:
-            p.resetBasePositionAndOrientation(self.blockId, [-0.4, 0, 0.0], [0, 0, 0, 1])
+            p.resetBasePositionAndOrientation(self.blockId, [-0.6, 0, 0.0], [0, 0, 0, 1])
 
 if __name__ == "__main__":
     s = Sim()

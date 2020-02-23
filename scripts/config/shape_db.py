@@ -68,7 +68,7 @@ def processButtShape(shape):
 
 class ShapeDB:
     def __init__(self):
-        self.shape_db["rect0"]["shape"] = makeShapePolyRect(0.15, 0.15) # hack
+        self.shape_db["rect0"]["shape"] = makeShapePolyRect(0.10, 0.10) # hack
         self.shape_db["rect1"]["shape"] = makeShapePolyRect(0.090, 0.090)
         self.shape_db["rect2"]["shape"] = makeShapePolyRect(0.08991, 0.11258)
         self.shape_db["rect3"]["shape"] = makeShapePolyRect(0.13501, 0.08994)
