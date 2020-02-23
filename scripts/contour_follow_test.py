@@ -17,7 +17,7 @@ if nstart > 1 and nstart % 2 == 1:  # correct it if not even nor 1
 step_size = 0.002
 explore_radius = 0.12
 center_world = [0.350, -0.03, 0]
-limit = 10000  # number of data points to be collected
+simLength = 10000  # number of data points to be collected
 
 # 2. Rough probing
 scan_contact_pts = []
@@ -85,5 +85,5 @@ while True:
     plt.title(str(i))
 
     # 3.5 break if we collect enough
-    # if len(contact_pts) > limit:
+    # if len(contact_pts) > simLength:
     #     break
