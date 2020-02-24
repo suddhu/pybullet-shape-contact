@@ -29,7 +29,7 @@ class Sim():
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
         # add plane to push on (slightly below the base of the robot)
-        self.planeId = p.loadURDF("plane_transparent.urdf", [0, 0, -0.05], useFixedBase=True)
+        self.planeId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/ground_plane/ground_plane.urdf", [0, 0, -0.05], useFixedBase=True)
 
         # add the robot at the origin with fixed base
         self.kukaId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/kuka_iiwa/model.urdf", [0, 0, 0.0], useFixedBase=True)
@@ -49,7 +49,7 @@ class Sim():
         self.safe_level = 0.50
 
         # add the block - we'll reset its position later
-        self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/block_big.urdf", self.center_world)
+        self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/shapes/rect.urdf", self.center_world)
 
         # reset joint states to nominal pose
         self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0, 0]
@@ -137,7 +137,6 @@ class Sim():
         ax.add_patch(gt)
         
         center = [np.mean(shape_polygon_3d_world.T[:,0]), np.mean(shape_polygon_3d_world.T[:,1])]
-        print(center)
         ax.plot(center[0], center[1], 'k.')
 
         probe = patches.Circle((self.traj[i][0], self.traj[i][1]), 0.020, facecolor="black", alpha=0.4)
@@ -145,7 +144,6 @@ class Sim():
 
         if (self.contactPt[i][0] != 0) and (self.contactPt[i][1] != 0):                 
             # 2: plot contact point 
-            print(self.contactPt[i])
             ax.plot(self.contactPt[i][0], self.contactPt[i][1], 'rX',  markersize=12)
 
             # 3: plot contact normal
@@ -241,8 +239,6 @@ class Sim():
                 # If in contact, break
                 if self.contactForce[self.simTime] > self.threshold: 
                     self.simTime = self.simTime + 1
-                    print("~~~~~~~~~~~contact~~~~~~~~~~~ ", i)
-
                     revpath =  path[-len(path)//10:]
 
                     # if the last one, stay in contact and do exploration from there.
@@ -256,7 +252,6 @@ class Sim():
                 # #if too far and no contact break.
                 if j > self.explore_radius*2/self.step_size:
                     self.simTime = self.simTime + 1
-                    print("~~~~~~~~~~~no contact~~~~~~~~~~~ ", i)
                     break
 
                 # increment counters
@@ -301,7 +296,6 @@ class Sim():
                 self.scan_contact_pts.append(contactInfo[0][5])
                 good_normal = self.contactNormal[self.simTime, :]
                 direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
-                print("contacts: ", len(self.scan_contact_pts))
 
 
             self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])

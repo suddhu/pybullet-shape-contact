@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<robot name="block_2">
-  <link name="block_2_base_link">
+<robot name="rect">
+  <link name="rect_base_link">
     <contact>
       <lateral_friction value="0.5"/>
       <spinning_friction value=".001"/>
@@ -15,7 +15,7 @@
       <geometry>
         <box size="0.10 0.10 0.05"/>
       </geometry>
-      <material name="blockmat">
+      <material name="rectmat">
         <color rgba="0.7148 0.7344 0.7188 1"/>
       </material>
     </visual>
