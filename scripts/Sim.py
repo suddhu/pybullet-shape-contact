@@ -19,11 +19,15 @@ plt.show()
 
 class Sim():
     def __init__(self, withVis=True):
+
+
         # connect to pybullet server
         if withVis:
             p.connect(p.GUI)
         else:
             p.connect(p.DIRECT)
+        p.resetDebugVisualizerCamera( cameraDistance=1.4, cameraYaw=5, cameraPitch=-31, cameraTargetPosition=[0,0,0])
+        p.setRealTimeSimulation(1)
 
         # set additional path to find kuka model
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -37,7 +41,6 @@ class Sim():
         # reset the base
         p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0.0], [0, 0, 0, 1])
 
-        p.resetDebugVisualizerCamera( cameraDistance=1.4, cameraYaw=48, cameraPitch=-37, cameraTargetPosition=[0,0,0])
 
         # get useful robot information
         self.kukaEndEffectorIndex = 7
@@ -48,11 +51,8 @@ class Sim():
         self.block_level = 0.04
         self.safe_level = 0.50
 
-        # add the block - we'll reset its position later
-        self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/shapes/rect.urdf", self.center_world)
-
         # reset joint states to nominal pose
-        self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0, 0]
+        self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0, math.pi]
         for i in range(self.numJoints):
             p.resetJointState(self.kukaId, i, self.rp[i])
 
@@ -101,12 +101,12 @@ class Sim():
         self.contactNormal = np.zeros((self.simLength, 2))
         self.scan_contact_pts = []
 
-        self.threshold = 0.2  # the threshold force for contact, need to be tuned
+        self.threshold = 0.1  # the threshold force for contact, need to be tuned
 
         # reset sim time
         self.t = 0
 
-        self.shape_id = 'rect0'
+        self.shape_id = 'rect1'
         shape_db = ShapeDB()
         shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
         self.shape_type = shape_db.shape_db[self.shape_id]['shape_type']
@@ -116,6 +116,11 @@ class Sim():
             self.shape = shape[0]
         elif self.shape_type == 'polyapprox':
             self.shape_polygon_3d = np.hstack((np.array(shape[0]), np.zeros((len(shape[0]), 1)), np.ones((len(shape[0]), 1))))
+
+        eePos = self.start_configs[0][0] + [self.block_level]
+        self.moveToPos(eePos) 
+        # add the block - we'll reset its position later
+        self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/shapes/rect.urdf", self.center_world)
 
 
     def plotter(self, i): 
@@ -165,7 +170,7 @@ class Sim():
         # probe.remove()
 
     def moveToPos(self, pos): 
-        p.stepSimulation()
+        # p.stepSimulation()
         plt.pause(0.001)
         # compute the inverse kinematics
         jointPoses = p.calculateInverseKinematics(self.kukaId,
@@ -178,13 +183,9 @@ class Sim():
                                 jointIndex=k,
                                 controlMode=p.POSITION_CONTROL,
                                 targetPosition=jointPoses[k],
-                                targetVelocity=0,
-                                force=500,
-                                positionGain=0.3,
-                                velocityGain=1)
+                                targetVelocity=0)
                                 
     def simulate(self):
-
         self.simTime = 0
         # each rough probe
         for i, (start_pos, direc) in enumerate(reversed(self.start_configs)):
@@ -261,6 +262,7 @@ class Sim():
         if len(self.scan_contact_pts) == 0:
             print("Error: Cannot touch the object")
             return
+
 
         good_normal = self.contactNormal[self.simTime - 1]
         direc = np.dot(tfm.euler_matrix(0,0,3) , good_normal.tolist() + [0] + [1])[0:2]
