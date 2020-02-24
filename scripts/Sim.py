@@ -29,7 +29,7 @@ class Sim():
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
         # add plane to push on (slightly below the base of the robot)
-        self.planeId = p.loadURDF("plane.urdf", [0, 0, -0.05], useFixedBase=True)
+        self.planeId = p.loadURDF("plane_transparent.urdf", [0, 0, -0.05], useFixedBase=True)
 
         # add the robot at the origin with fixed base
         self.kukaId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/kuka_iiwa/model.urdf", [0, 0, 0.0], useFixedBase=True)
@@ -37,18 +37,19 @@ class Sim():
         # reset the base
         p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0.0], [0, 0, 0, 1])
 
+        p.resetDebugVisualizerCamera( cameraDistance=1.4, cameraYaw=48, cameraPitch=-37, cameraTargetPosition=[0,0,0])
+
         # get useful robot information
         self.kukaEndEffectorIndex = 7
         self.numJoints = p.getNumJoints(self.kukaId)
 
-        self.center_world = [-0.6, 0, 0]
+        self.center_world = [-0.4, 0, 0]
 
-        self.block_level = 0.01
+        self.block_level = 0.04
         self.safe_level = 0.50
 
         # add the block - we'll reset its position later
         self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/block_big.urdf", self.center_world)
-        # p.resetBasePositionAndOrientation(self.blockId, [-0.6, 0, 0.1], [0, 0, 0, 1])
 
         # reset joint states to nominal pose
         self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0, 0]
@@ -71,7 +72,6 @@ class Sim():
         if self.init_prods > 1 and self.init_prods % 2 == 1:  # correct it if not even nor 1
             self.init_prods += 1
 
-
         # 2.1 populate start poses for small probing in opposite directions
         self.start_configs = []
 
@@ -91,7 +91,7 @@ class Sim():
         self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
         # set robot init config: start moving from here
-        self.robotInitPoseCart = [-0.6, -0.2, 0.05] # (x,y,z)
+        self.robotInitPoseCart = [-0.4, -0.2, 0.05] # (x,y,z)
         self.orn = p.getQuaternionFromEuler([0, -math.pi, 0])
 
         # pre-define the trajectory/force vectors
@@ -134,7 +134,7 @@ class Sim():
             gt = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='solid')
         ax.add_patch(gt)
 
-        probe = patches.Circle((self.traj[i][0], self.traj[i][1]), 0.020, facecolor="blue", alpha=0.4)
+        probe = patches.Circle((self.traj[i][0], self.traj[i][1]), 0.020, facecolor="black", alpha=0.4)
         ax.add_patch(probe)
 
         # print('circle: ', self.traj[i][0], self.traj[i][1])
@@ -261,7 +261,7 @@ class Sim():
             return
 
         good_normal = self.contactNormal[self.simTime - 1]
-        direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
+        direc = np.dot(tfm.euler_matrix(0,0,3) , good_normal.tolist() + [0] + [1])[0:2]
         # 3. Contour following, use the normal to move along the block
         while True:
             # 3.1 move 
@@ -320,7 +320,7 @@ class Sim():
         # reset block pose
         if withRandom:
             # define nominal block pose
-            nom_pose = np.array([-0.6, 0.0, 0.0]) # (x,y,theta)
+            nom_pose = np.array([-0.4, 0.0, 0.0]) # (x,y,theta)
 
             # define uncertainty bounds
             pos_bd = np.array([0.01, 0.01, 0.0])
@@ -335,7 +335,7 @@ class Sim():
             blockInitOri = p.getQuaternionFromEuler([0, 0, blockInitPose[-1]])
             p.resetBasePositionAndOrientation(self.blockId, [blockInitPose[0], blockInitPose[1], 0.0], blockInitOri)
         else:
-            p.resetBasePositionAndOrientation(self.blockId, [-0.6, 0, 0.0], [0, 0, 0, 1])
+            p.resetBasePositionAndOrientation(self.blockId, [-0.4, 0, 0.0], [0, 0, 0, 1])
 
 if __name__ == "__main__":
     s = Sim()
