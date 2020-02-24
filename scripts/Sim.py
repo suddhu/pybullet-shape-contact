@@ -99,7 +99,9 @@ class Sim():
         self.contactPt = np.zeros((self.simLength, 2))
         self.contactForce = np.zeros((self.simLength, ))
         self.contactNormal = np.zeros((self.simLength, 2))
-        self.threshold = 0.3  # the threshold force for contact, need to be tuned
+        self.scan_contact_pts = []
+
+        self.threshold = 0.2  # the threshold force for contact, need to be tuned
 
         # reset sim time
         self.t = 0
@@ -133,15 +135,18 @@ class Sim():
             scale, shear, angles, trans, persp = tfm.decompose_matrix(T)
             gt = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='solid')
         ax.add_patch(gt)
+        
+        center = [np.mean(shape_polygon_3d_world.T[:,0]), np.mean(shape_polygon_3d_world.T[:,1])]
+        print(center)
+        ax.plot(center[0], center[1], 'k.')
 
         probe = patches.Circle((self.traj[i][0], self.traj[i][1]), 0.020, facecolor="black", alpha=0.4)
         ax.add_patch(probe)
 
-        # print('circle: ', self.traj[i][0], self.traj[i][1])
         if (self.contactPt[i][0] != 0) and (self.contactPt[i][1] != 0):                 
             # 2: plot contact point 
             print(self.contactPt[i])
-            ax.plot(self.contactPt[i][0], self.contactPt[i][1], 'r*',  markersize=12)
+            ax.plot(self.contactPt[i][0], self.contactPt[i][1], 'rX',  markersize=12)
 
             # 3: plot contact normal
             ax.arrow(self.contactPt[i][0], self.contactPt[i][1], 
@@ -150,7 +155,10 @@ class Sim():
 
         plt.xlim(self.traj[0][2] - self.explore_radius, self.traj[0][2] +  self.explore_radius)
         plt.ylim(self.traj[0][3] - self.explore_radius, self.traj[0][3] +  self.explore_radius)
-        plt.title('timestamp:' + str(i))
+        plt.title('timestamp: ' + str(i))
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        plt.title('Sim timestamp: ' + str(i) + '          '  + '# contacts: ' + str(len(self.scan_contact_pts)))
         plt.draw()
         plt.pause(0.001)
 
@@ -179,7 +187,6 @@ class Sim():
                                 
     def simulate(self):
 
-        scan_contact_pts = []
         self.simTime = 0
         # each rough probe
         for i, (start_pos, direc) in enumerate(reversed(self.start_configs)):
@@ -223,7 +230,7 @@ class Sim():
                     self.contactForce[self.simTime] = f_c_temp
                     self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                     self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
-                    scan_contact_pts.append(contactInfo[0][5])
+                    self.scan_contact_pts.append(contactInfo[0][5])
 
                 self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
 
@@ -256,7 +263,7 @@ class Sim():
                 j = j + 1
                 self.simTime = self.simTime + 1
 
-        if len(scan_contact_pts) == 0:
+        if len(self.scan_contact_pts) == 0:
             print("Error: Cannot touch the object")
             return
 
@@ -291,10 +298,10 @@ class Sim():
                 self.contactForce[self.simTime] = f_c_temp
                 self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                 self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
-                scan_contact_pts.append(contactInfo[0][5])
+                self.scan_contact_pts.append(contactInfo[0][5])
                 good_normal = self.contactNormal[self.simTime, :]
                 direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
-                print("contacts: ", len(scan_contact_pts))
+                print("contacts: ", len(self.scan_contact_pts))
 
 
             self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
@@ -307,7 +314,7 @@ class Sim():
             self.simTime = self.simTime + 1
 
             # 3.5 break if we collect enough
-            if len(scan_contact_pts) > self.limit:
+            if len(self.scan_contact_pts) > self.limit:
                 break
 
         return self.traj
