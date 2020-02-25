@@ -11,11 +11,29 @@ import pdb
 from ik.helper import wraptopi, matrix_from_xyzrpy
 from config.shape_db import ShapeDB
 import tf.transformations as tfm
+import json, os
 
 fig, ax = plt.subplots()
 ax.axis('equal')
 plt.ion()
 plt.show()
+
+colname =  [
+  "x of contact position", 
+  "y of contact position", 
+  "z of contact position", 
+  "x of contact normal", 
+  "y of contact normal", 
+  "z of contact normal", 
+  "force magnitude",
+  "x of pusher position", 
+  "y of pusher position", 
+  "z of pusher position",
+  "x of ground truth object pose", 
+  "y of ground truth object pose", 
+  "z of ground truth object pose", 
+  "yaw of ground truth object pose"
+ ]
 
 class Sim():
     def __init__(self, withVis=True):
@@ -40,7 +58,6 @@ class Sim():
 
         # reset the base
         p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0.0], [0, 0, 0, 1])
-
 
         # get useful robot information
         self.kukaEndEffectorIndex = 7
@@ -102,7 +119,7 @@ class Sim():
         self.scan_contact_pts = []
 
         self.threshold = 0.1  # the threshold force for contact, need to be tuned
-
+        self.probe_radius = 0.020
         # reset sim time
         self.t = 0
 
@@ -144,7 +161,7 @@ class Sim():
         center = [np.mean(shape_polygon_3d_world.T[:,0]), np.mean(shape_polygon_3d_world.T[:,1])]
         ax.plot(center[0], center[1], 'k.')
 
-        probe = patches.Circle((self.traj[i][0], self.traj[i][1]), 0.020, facecolor="black", alpha=0.4)
+        probe = patches.Circle((self.traj[i][0], self.traj[i][1]), self.probe_radius, facecolor="black", alpha=0.4)
         ax.add_patch(probe)
 
         if (self.contactPt[i][0] != 0) and (self.contactPt[i][1] != 0):                 
@@ -186,6 +203,19 @@ class Sim():
                                 targetVelocity=0)
                                 
     def simulate(self):
+
+        input("Enter to start")
+        num = 1
+        filename = 'all_contact_shape=%s_rep=%04d' % (self.shape_id, num)
+        dir_base = "/home/suddhu/software/pybullet-shape-contact/data/contour_following"
+        jsonfilename = dir_base+'/%s.json' % filename
+        while os.path.isfile(jsonfilename):
+            num = num + 1
+            filename = 'all_contact_shape=%s_rep=%04d' % (self.shape_id, num)
+            jsonfilename = dir_base+'/%s.json' % filename
+
+        all_contact = []
+
         self.simTime = 0
         # each rough probe
         for i, (start_pos, direc) in enumerate(reversed(self.start_configs)):
@@ -299,8 +329,15 @@ class Sim():
                 good_normal = self.contactNormal[self.simTime, :]
                 direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
 
-
             self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
+
+            all_contact.append(
+            self.contactPt[self.simTime, 0:2].tolist() + [0] + 
+            self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
+            [self.contactForce[self.simTime]] + 
+            self.traj[self.simTime, 0:2].tolist() + [0] +
+            self.traj[self.simTime, 2:4].tolist() + [0] + 
+            [self.traj[self.simTime, 4]])
 
             # plot
             if (self.simTime % 1 == 0):
@@ -312,6 +349,13 @@ class Sim():
             # 3.5 break if we collect enough
             if len(self.scan_contact_pts) > self.limit:
                 break
+
+        with open(jsonfilename, 'w') as outfile:
+            json.dump({'all_contacts': all_contact,
+                       '__title__': colname, 
+                         "shape_id": self.shape_id,
+                         "probe_radius": self.probe_radius,
+                         "offset": self.center_world}, outfile, sort_keys=True, indent=1)
 
         return self.traj
 

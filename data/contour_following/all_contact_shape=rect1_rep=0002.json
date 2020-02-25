@@ -1,0 +1,33 @@
+{
+ "__title__": [
+  "x of contact position",
+  "y of contact position",
+  "z of contact position",
+  "x of contact normal",
+  "y of contact normal",
+  "z of contact normal",
+  "force magnitude",
+  "x of pusher position",
+  "y of pusher position",
+  "z of pusher position",
+  "x of ground truth object pose",
+  "y of ground truth object pose",
+  "z of ground truth object pose",
+  "yaw of ground truth object pose"
+ ],
+ "all_contacts": [
+  [
+   -0.35884875272989936,
+   0.0006448684404184434,
+   0,
+   0.9999999999378053,
+   1.11445028381124e-05,
+   0,
+   0.0,
+   -0.3399799863200114,
+   0.0002822307080330979,
+   0,
+   -0.4040039953012343,
+   -3.7995797313152605e-05,
+   0,
+   

@@ -10,6 +10,8 @@ def main():
     explorer = Sim.Sim(withVis)
 
     # push direction with respect to the positive y axis
+    i = 1
+    shape_id = 'rect1'
 
     # simulate and plot trajectories
     explorer.resetSim(withRandom=withRand)

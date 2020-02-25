@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<robot name="ellip">
+  <link name="ellip_base_link">
+    <contact>
+      <lateral_friction value="0.25"/>
+      <spinning_friction value=".001"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.837"/>
+      <inertia ixx="7.3935e-04" ixy="0" ixz="0" iyx="0" iyy="7.3935e-04" iyz="0" izx="0" izy="0" izz="7.3935e-04"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="ellip.stl" scale="0.001 0.001 0.001"/> 
+      </geometry>
+      <material name="rectmat">
+        <color rgba="0.7148 0.7344 0.7188 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="ellip.stl" scale="0.001 0.001 0.001"/> 
+      </geometry>
+    </collision>
+  </link>
+</robot>
