@@ -64,7 +64,7 @@ class Sim():
 
         self.center_world = [-0.4, 0, 0]
 
-        self.block_level = 0.04
+        self.block_level = 0.03
         self.safe_level = 0.50
         # reset joint states to nominal pose
         self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0.5*math.pi, 0]
@@ -289,11 +289,14 @@ class Sim():
 
         good_normal = self.contactNormal[self.simTime - 1]
         direc = np.dot(tfm.euler_matrix(0,0,3) , good_normal.tolist() + [0] + [1])[0:2]
+
+
         # 3. Contour following, use the normal to move along the block
         while True:
             # 3.1 move 
             # pdb.set_trace()
-            
+            angle = 2
+
             curr_pos = (np.array(curr_pos) + np.array(direc) * self.step_size).tolist()
             
             eePos = curr_pos + [self.block_level]
@@ -308,6 +311,9 @@ class Sim():
             # get contact information
             contactInfo = p.getContactPoints(self.kukaId, self.blockId)
 
+            if (np.linalg.norm(self.contactPt[self.simTime, :] - self.contactPt[self.simTime - 1, :]) < 0.01):
+                angle = 1
+
             # get the net contact force between robot and block
             if len(contactInfo)>0:
                 f_c_temp = 0
@@ -320,10 +326,12 @@ class Sim():
                 self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
                 self.scan_contact_pts.append(contactInfo[0][5])
                 good_normal = self.contactNormal[self.simTime, :]
-                direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
+                direc = np.dot(tfm.euler_matrix(0,0,angle) , good_normal.tolist() + [0] + [1])[0:2]
 
             self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
+            
 
+            
             all_contact.append(
             self.contactPt[self.simTime, 0:2].tolist() + [0] + 
             self.contactNormal[self.simTime, 0:2].tolist() + [0] + 

@@ -1,28 +1,28 @@
 <?xml version="1.0"?>
-<robot name="butter">
-  <link name="butter_base_link">
+<robot name="hex">
+  <link name="hex_base_link">
     <contact>
       <lateral_friction value="0.25"/>
       <spinning_friction value=".001"/>
     </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="1.1974"/>
-      <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.00295433407908"/>
+      <mass value="0.9827"/>
+      <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001497"/>
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="butter.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="hex.stl" scale="1.0 1.0 2.0"/> 
       </geometry>
       <material name="mat">
         <color rgba="0.7148 0.7344 0.7188 1"/>
       </material>
     </visual>
-    <collision concave="yes">
+    <collision>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="butter.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="hex.stl" scale="1.0 1.0 2.0"/> 
       </geometry>
     </collision>
   </link>
