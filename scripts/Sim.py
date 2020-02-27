@@ -36,8 +36,7 @@ colname =  [
  ]
 
 class Sim():
-    def __init__(self, withVis=True):
-
+    def __init__(self, shape_id, withVis=True):
 
         # connect to pybullet server
         if withVis:
@@ -67,12 +66,10 @@ class Sim():
 
         self.block_level = 0.04
         self.safe_level = 0.50
-
         # reset joint states to nominal pose
-        self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0, math.pi]
+        self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0.5*math.pi, 0]
         for i in range(self.numJoints):
             p.resetJointState(self.kukaId, i, self.rp[i])
-
 
         # get the joint ids
         self.jointInds = [i for i in range(self.numJoints)]
@@ -105,11 +102,11 @@ class Sim():
                 self.start_configs.append([start_pos, direc ])
 
         #joint damping coefficents
-        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        self.jd = [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
 
         # set robot init config: start moving from here
         self.robotInitPoseCart = [-0.4, -0.2, 0.05] # (x,y,z)
-        self.orn = p.getQuaternionFromEuler([0, -math.pi, 0])
+        self.orn = p.getQuaternionFromEuler([0, math.pi, 0])
 
         # pre-define the trajectory/force vectors
         self.traj = np.zeros((self.simLength, 5))
@@ -119,14 +116,15 @@ class Sim():
         self.scan_contact_pts = []
 
         self.threshold = 0.1  # the threshold force for contact, need to be tuned
-        self.probe_radius = 0.020
+        self.probe_radius = 0.010
         # reset sim time
         self.t = 0
 
-        self.shape_id = 'rect1'
+        self.shape_id = shape_id
         shape_db = ShapeDB()
         shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
         self.shape_type = shape_db.shape_db[self.shape_id]['shape_type']
+
         if self.shape_type == 'poly':
             self.shape_polygon_3d = np.hstack((np.array(shape), np.zeros((len(shape), 1)), np.ones((len(shape), 1))))
         elif self.shape_type == 'ellip':
@@ -136,8 +134,11 @@ class Sim():
 
         eePos = self.start_configs[0][0] + [self.block_level]
         self.moveToPos(eePos) 
+
+        urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/" + self.shape_id + ".urdf"
+        print(urdf_file)
         # add the block - we'll reset its position later
-        self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/shapes/rect.urdf", self.center_world)
+        self.blockId = p.loadURDF(urdf_file, self.center_world)
 
 
     def plotter(self, i): 
@@ -147,7 +148,6 @@ class Sim():
         yb = self.traj[i][3]
         # t = wraptopi(self.traj[i][4])
         t = self.traj[i][4]
-
         T = matrix_from_xyzrpy([xb, yb, 0], [0, 0, t])
 
         if self.shape_type == 'poly' or self.shape_type == 'polyapprox':
@@ -157,9 +157,6 @@ class Sim():
             scale, shear, angles, trans, persp = tfm.decompose_matrix(T)
             gt = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='solid')
         ax.add_patch(gt)
-        
-        center = [np.mean(shape_polygon_3d_world.T[:,0]), np.mean(shape_polygon_3d_world.T[:,1])]
-        ax.plot(center[0], center[1], 'k.')
 
         probe = patches.Circle((self.traj[i][0], self.traj[i][1]), self.probe_radius, facecolor="black", alpha=0.4)
         ax.add_patch(probe)
@@ -176,15 +173,12 @@ class Sim():
         plt.xlim(self.traj[0][2] - self.explore_radius, self.traj[0][2] +  self.explore_radius)
         plt.ylim(self.traj[0][3] - self.explore_radius, self.traj[0][3] +  self.explore_radius)
         plt.title('timestamp: ' + str(i))
+        fig.canvas.set_window_title(self.shape_id)
         plt.xlabel('x (m)')
         plt.ylabel('y (m)')
         plt.title('Sim timestamp: ' + str(i) + '          '  + '# contacts: ' + str(len(self.scan_contact_pts)))
         plt.draw()
         plt.pause(0.001)
-
-        # input("Press [enter] to continue.")
-        # gt.remove()
-        # probe.remove()
 
     def moveToPos(self, pos): 
         # p.stepSimulation()
@@ -204,7 +198,6 @@ class Sim():
                                 
     def simulate(self):
 
-        input("Enter to start")
         num = 1
         filename = 'all_contact_shape=%s_rep=%04d' % (self.shape_id, num)
         dir_base = "/home/suddhu/software/pybullet-shape-contact/data/contour_following"

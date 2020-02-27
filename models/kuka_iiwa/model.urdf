@@ -310,7 +310,7 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.1275" radius="0.020"/>
+        	<cylinder length="0.1275" radius="0.010"/>
       </geometry>
       <material name="Grey"/>
     </visual>
@@ -318,7 +318,7 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.1275" radius="0.020"/>
+        	<cylinder length="0.1275" radius="0.010"/>
       </geometry>
       <material name="Grey"/>
     </collision>

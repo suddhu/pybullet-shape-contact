@@ -1,28 +1,28 @@
 <?xml version="1.0"?>
-<robot name="rect">
-  <link name="rect_base_link">
+<robot name="ellip3">
+  <link name="ellip3_base_link">
     <contact>
-      <lateral_friction value="0.5"/>
+      <lateral_friction value="0.25"/>
       <spinning_friction value=".001"/>
     </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="2.0"/>
-      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+      <mass value="1.3338"/>
+      <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.002973"/>
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <box size="0.09 0.09 0.05"/>
+        <mesh filename="ellip3.stl" scale="1.0 1.0 2.0"/> 
       </geometry>
-      <material name="rectmat">
+      <material name="mat">
         <color rgba="0.7148 0.7344 0.7188 1"/>
       </material>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <box size="0.09 0.09 0.05"/>
+        <mesh filename="ellip3.stl" scale="1.0 1.0 2.0"/> 
       </geometry>
     </collision>
   </link>
