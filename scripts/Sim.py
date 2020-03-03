@@ -43,7 +43,8 @@ class Sim():
             p.connect(p.GUI)
         else:
             p.connect(p.DIRECT)
-        p.resetDebugVisualizerCamera( cameraDistance=1.4, cameraYaw=5, cameraPitch=-31, cameraTargetPosition=[0,0,0])
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
+        p.resetDebugVisualizerCamera( cameraDistance=1.4, cameraYaw=-30, cameraPitch=-50, cameraTargetPosition=[0,0,0])
         p.setRealTimeSimulation(1)
 
         # set additional path to find kuka model
@@ -124,6 +125,8 @@ class Sim():
         shape_db = ShapeDB()
         shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
         self.shape_type = shape_db.shape_db[self.shape_id]['shape_type']
+        self.shape_moment = shape_db.shape_db[self.shape_id]['moment_of_inertia']
+        self.shape_mass = shape_db.shape_db[self.shape_id]['mass']
 
         if self.shape_type == 'poly':
             self.shape_polygon_3d = np.hstack((np.array(shape), np.zeros((len(shape), 1)), np.ones((len(shape), 1))))
@@ -140,6 +143,21 @@ class Sim():
         # add the block - we'll reset its position later
         self.blockId = p.loadURDF(urdf_file, self.center_world)
 
+        all_dynamics = p.getDynamicsInfo(self.blockId, -1)
+
+        print('init_mass: ', all_dynamics[0], ' init_lat_fric: ', all_dynamics[1], ' init_inertia: ', all_dynamics[2],
+             ' init_spin_fric: ', all_dynamics[7])
+
+        set_mass = 
+        inert = [1e-3, 1e-3, self.shape_moment]
+        p.changeDynamics(self.blockId, -1, mass= , lateralFriction=, spinningFriction=, localInertiaDiagonal=inert)
+
+        all_dynamics = p.getDynamicsInfo(self.blockId, -1)
+
+        print('new_mass: ', all_dynamics[0], ' new_lat_fric: ', all_dynamics[1], ' new_inertia: ', all_dynamics[2],
+              ' new_spin_fric: ', all_dynamics[7])
+
+        input('Click Enter!')
 
     def plotter(self, i): 
         ax.clear()
