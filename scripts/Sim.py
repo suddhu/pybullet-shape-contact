@@ -149,6 +149,10 @@ class Sim():
 
         all_dynamics = p.getDynamicsInfo(self.blockId, -1)
 
+        self.centroid = np.array(all_dynamics[3])
+        self.centroid.reshape([1, 3])
+        self.centroid = np.hstack((self.centroid, 1))
+
         # print('shape file: ', urdf_file, '\n', 'init_mass: ', all_dynamics[0], ' init_lat_fric: ', all_dynamics[1], ' init_inertia: ', all_dynamics[2],
         #      ' init_spin_fric: ', all_dynamics[7])
 
@@ -161,7 +165,7 @@ class Sim():
              ' lat_fric: ', all_dynamics[1], ' moment of inertia: ', all_dynamics[2],
               ' centroid: ', all_dynamics[3], ' spin_fric: ', all_dynamics[7])
 
-        input('Click Enter!')
+        # input('Click Enter!')
 
     def plotter(self, i): 
         ax.clear()
@@ -177,8 +181,11 @@ class Sim():
             gt = patches.Polygon(shape_polygon_3d_world.T[:,0:2], closed=True, linewidth=2, linestyle='dashed', fill=False)
         elif self.shape_type == 'ellip':
             scale, shear, angles, trans, persp = tfm.decompose_matrix(T)
-            gt = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='solid')
+            gt = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='dashed')
         ax.add_patch(gt)
+
+        t_c = np.dot(T, self.centroid.T)
+        ax.plot(t_c[0], t_c[1], 'k.',  markersize=5)
 
         probe = patches.Circle((self.traj[i][0], self.traj[i][1]), self.probe_radius, facecolor="black", alpha=0.4)
         ax.add_patch(probe)
@@ -192,6 +199,11 @@ class Sim():
                 self.contactNormal[i][0]*0.05, self.contactNormal[i][1]*0.05, 
                 head_width=0.001, head_length=0.01, fc='y', ec='g')
 
+            # 4: plot contour direction
+            ax.arrow(self.contactPt[i][0], self.contactPt[i][1], 
+                self.direc[0]*0.01, self.direc[1]*0.01, 
+                fc='y', ec='y', ls='-')
+                
         plt.xlim(self.traj[0][2] - self.explore_radius, self.traj[0][2] +  self.explore_radius)
         plt.ylim(self.traj[0][3] - self.explore_radius, self.traj[0][3] +  self.explore_radius)
         plt.title('timestamp: ' + str(i))
@@ -201,6 +213,8 @@ class Sim():
         plt.title('Sim timestamp: ' + str(i) + '          '  + '# contacts: ' + str(len(self.scan_contact_pts)))
         plt.draw()
         plt.pause(0.001)
+        # input('Click Enter!')
+
 
     def moveToPos(self, pos): 
         # p.stepSimulation()
@@ -230,10 +244,11 @@ class Sim():
             jsonfilename = dir_base+'/%s.json' % filename
 
         all_contact = []
+        self.direc = [0, 0]
 
         self.simTime = 0
         # each rough probe
-        for i, (start_pos, direc) in enumerate(reversed(self.start_configs)):
+        for i, (start_pos, self.direc) in enumerate(reversed(self.start_configs)):
             # ax.clear()
             curr_pos = start_pos
             
@@ -249,7 +264,7 @@ class Sim():
             path = []
             while True:
                 # move along rough probe
-                curr_pos = (np.array(curr_pos) + np.array(direc) * self.step_size).tolist()
+                curr_pos = (np.array(curr_pos) + np.array(self.direc) * self.step_size).tolist()
 
                 eePos = curr_pos + [self.block_level]
                 path.append(eePos)
@@ -310,8 +325,7 @@ class Sim():
 
 
         good_normal = self.contactNormal[self.simTime - 1]
-        direc = np.dot(tfm.euler_matrix(0,0,3) , good_normal.tolist() + [0] + [1])[0:2]
-
+        self.direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
 
         # 3. Contour following, use the normal to move along the block
         while True:
@@ -319,7 +333,7 @@ class Sim():
             # pdb.set_trace()
             angle = 2
 
-            curr_pos = (np.array(curr_pos) + np.array(direc) * self.step_size).tolist()
+            curr_pos = (np.array(curr_pos) + np.array(self.direc) * self.step_size).tolist()
             
             eePos = curr_pos + [self.block_level]
             self.moveToPos(eePos) 
@@ -348,7 +362,7 @@ class Sim():
                 self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
                 self.scan_contact_pts.append(contactInfo[0][5])
                 good_normal = self.contactNormal[self.simTime, :]
-                direc = np.dot(tfm.euler_matrix(0,0,angle) , good_normal.tolist() + [0] + [1])[0:2]
+                self.direc = np.dot(tfm.euler_matrix(0,0,angle) , good_normal.tolist() + [0] + [1])[0:2]
 
             self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
             

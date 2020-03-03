@@ -11,7 +11,7 @@
       <inertia ixx="1e-3" ixy="0" ixz="0" iyy="1e-3" iyz="0" izz="0.001414"/>
     </inertial>
     <visual>
-      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <origin rpy="0 0 0" xyz="0.00303333 0.00306333 0"/>
       <geometry>
         <mesh filename="tri1.stl" scale="1.0 1.0 2.0"/> 
       </geometry>
@@ -20,7 +20,7 @@
       </material>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <origin rpy="0 0 0" xyz="0.00303333 0.00306333 0"/>
       <geometry>
         <mesh filename="tri1.stl" scale="1.0 1.0 2.0"/> 
       </geometry>
