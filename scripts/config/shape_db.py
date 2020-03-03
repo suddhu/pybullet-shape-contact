@@ -176,7 +176,8 @@ class ShapeDB:
             "slot_pos" : [],
             "shape_type" : 'poly',
             "mass" : 0.9827,
-            "moment_of_inertia": 0.001497
+            "moment_of_inertia": 0.001497,
+            "centroid": (0,0)
         },
         "butter" : {
             "slot_pos" : [],

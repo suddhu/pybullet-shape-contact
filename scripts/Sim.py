@@ -125,8 +125,6 @@ class Sim():
         shape_db = ShapeDB()
         shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
         self.shape_type = shape_db.shape_db[self.shape_id]['shape_type']
-        self.shape_moment = shape_db.shape_db[self.shape_id]['moment_of_inertia']
-        self.shape_mass = shape_db.shape_db[self.shape_id]['mass']
 
         if self.shape_type == 'poly':
             self.shape_polygon_3d = np.hstack((np.array(shape), np.zeros((len(shape), 1)), np.ones((len(shape), 1))))
@@ -138,24 +136,30 @@ class Sim():
         eePos = self.start_configs[0][0] + [self.block_level]
         self.moveToPos(eePos) 
 
+
+        # Block: add block and update physical parameters
+        shape_moment = [1e-3, 1e-3, shape_db.shape_db[self.shape_id]['moment_of_inertia']]
+        shape_mass = shape_db.shape_db[self.shape_id]['mass']
+        fric = 0.25
+        s_fric = 0.001
+
         urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/" + self.shape_id + ".urdf"
-        print(urdf_file)
-        # add the block - we'll reset its position later
+        print()
         self.blockId = p.loadURDF(urdf_file, self.center_world)
 
         all_dynamics = p.getDynamicsInfo(self.blockId, -1)
 
-        print('init_mass: ', all_dynamics[0], ' init_lat_fric: ', all_dynamics[1], ' init_inertia: ', all_dynamics[2],
-             ' init_spin_fric: ', all_dynamics[7])
+        # print('shape file: ', urdf_file, '\n', 'init_mass: ', all_dynamics[0], ' init_lat_fric: ', all_dynamics[1], ' init_inertia: ', all_dynamics[2],
+        #      ' init_spin_fric: ', all_dynamics[7])
 
-        set_mass = 
-        inert = [1e-3, 1e-3, self.shape_moment]
-        p.changeDynamics(self.blockId, -1, mass= , lateralFriction=, spinningFriction=, localInertiaDiagonal=inert)
+        p.changeDynamics(self.blockId, -1, mass=shape_mass, lateralFriction=fric,
+                         spinningFriction=s_fric, localInertiaDiagonal=shape_moment)
 
         all_dynamics = p.getDynamicsInfo(self.blockId, -1)
 
-        print('new_mass: ', all_dynamics[0], ' new_lat_fric: ', all_dynamics[1], ' new_inertia: ', all_dynamics[2],
-              ' new_spin_fric: ', all_dynamics[7])
+        print('shape file: ', urdf_file, '\n','mass: ', all_dynamics[0],
+             ' lat_fric: ', all_dynamics[1], ' moment of inertia: ', all_dynamics[2],
+              ' centroid: ', all_dynamics[3], ' spin_fric: ', all_dynamics[7])
 
         input('Click Enter!')
 
