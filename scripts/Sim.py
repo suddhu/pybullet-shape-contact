@@ -12,6 +12,7 @@ from ik.helper import wraptopi, matrix_from_xyzrpy
 from config.shape_db import ShapeDB
 import tf.transformations as tfm
 import json, os
+import subprocess, glob
 
 fig, ax = plt.subplots()
 ax.axis('equal')
@@ -32,11 +33,16 @@ colname =  [
   "x of ground truth object pose", 
   "y of ground truth object pose", 
   "z of ground truth object pose", 
-  "yaw of ground truth object pose"
+  "yaw of ground truth object pose",
+  "time"
  ]
 
 class Sim():
-    def __init__(self, shape_id, withVis=True):
+    def __init__(self, shape_id, withVis=True, withVid=False):
+
+        self.start_time = time.time()
+
+        self.record = withVid
 
         # connect to pybullet server
         if withVis:
@@ -44,7 +50,7 @@ class Sim():
         else:
             p.connect(p.DIRECT)
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
-        p.resetDebugVisualizerCamera( cameraDistance=1.4, cameraYaw=-30, cameraPitch=-50, cameraTargetPosition=[0,0,0])
+        p.resetDebugVisualizerCamera( cameraDistance=1.0, cameraYaw=-30, cameraPitch=-50, cameraTargetPosition=[0,0,0])
         p.setRealTimeSimulation(1)
 
         # set additional path to find kuka model
@@ -103,7 +109,7 @@ class Sim():
                 self.start_configs.append([start_pos, direc ])
 
         #joint damping coefficents
-        self.jd = [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
         # set robot init config: start moving from here
         self.robotInitPoseCart = [-0.4, -0.2, 0.05] # (x,y,z)
@@ -136,12 +142,11 @@ class Sim():
         eePos = self.start_configs[0][0] + [self.block_level]
         self.moveToPos(eePos) 
 
-
         # Block: add block and update physical parameters
         shape_moment = [1e-3, 1e-3, shape_db.shape_db[self.shape_id]['moment_of_inertia']]
         shape_mass = shape_db.shape_db[self.shape_id]['mass']
         fric = 0.25
-        s_fric = 0.001
+        s_fric = 0.0
 
         urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/" + self.shape_id + ".urdf"
         print()
@@ -157,7 +162,7 @@ class Sim():
         #      ' init_spin_fric: ', all_dynamics[7])
 
         p.changeDynamics(self.blockId, -1, mass=shape_mass, lateralFriction=fric,
-                         spinningFriction=s_fric, localInertiaDiagonal=shape_moment)
+                         spinningFriction=s_fric,localInertiaDiagonal=shape_moment)
 
         all_dynamics = p.getDynamicsInfo(self.blockId, -1)
 
@@ -213,7 +218,9 @@ class Sim():
         plt.title('Sim timestamp: ' + str(i) + '          '  + '# contacts: ' + str(len(self.scan_contact_pts)))
         plt.draw()
         plt.pause(0.001)
-        # input('Click Enter!')
+
+        if self.record: 
+            plt.savefig(self.plotPath + "/%03d.png" % i)
 
 
     def moveToPos(self, pos): 
@@ -233,6 +240,7 @@ class Sim():
                                 targetVelocity=0)
                                 
     def simulate(self):
+        
 
         num = 1
         filename = 'all_contact_shape=%s_rep=%04d' % (self.shape_id, num)
@@ -242,6 +250,18 @@ class Sim():
             num = num + 1
             filename = 'all_contact_shape=%s_rep=%04d' % (self.shape_id, num)
             jsonfilename = dir_base+'/%s.json' % filename
+
+        if self.record:
+            # start logging
+            vid_base = "/home/suddhu/software/pybullet-shape-contact/data/video/"
+            os.mkdir(vid_base + filename)
+            self.vidPath = vid_base + filename + "/sim.mp4"
+            logId = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, self.vidPath)
+            print("logging video: ", self.vidPath)
+
+            self.plotPath = vid_base + filename
+            print("logging plot: ", self.plotPath)
+
 
         all_contact = []
         self.direc = [0, 0]
@@ -356,25 +376,26 @@ class Sim():
                 for c in range(len(contactInfo)):
                     f_c_temp += contactInfo[c][9]
                 
-                # print("f_c_temp: ", f_c_temp)
                 self.contactForce[self.simTime] = f_c_temp
                 self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                 self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
-                self.scan_contact_pts.append(contactInfo[0][5])
                 good_normal = self.contactNormal[self.simTime, :]
                 self.direc = np.dot(tfm.euler_matrix(0,0,angle) , good_normal.tolist() + [0] + [1])[0:2]
+                self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
 
-            self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
-            
+                if f_c_temp > self.threshold:
+                    print("f_c_temp: ", f_c_temp)
+                    self.scan_contact_pts.append(contactInfo[0][5])   
+                    # pdb.set_trace()   
+                    all_contact.append(
+                    self.contactPt[self.simTime, 0:2].tolist() + [0] + 
+                    self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
+                    [self.contactForce[self.simTime]] + 
+                    self.traj[self.simTime, 0:2].tolist() + [0] +
+                    self.traj[self.simTime, 2:4].tolist() + [0] + 
+                    [self.traj[self.simTime, 4]] + 
+                    [time.time() - self.start_time])
 
-            
-            all_contact.append(
-            self.contactPt[self.simTime, 0:2].tolist() + [0] + 
-            self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
-            [self.contactForce[self.simTime]] + 
-            self.traj[self.simTime, 0:2].tolist() + [0] +
-            self.traj[self.simTime, 2:4].tolist() + [0] + 
-            [self.traj[self.simTime, 4]])
 
             # plot
             if (self.simTime % 1 == 0):
@@ -393,6 +414,16 @@ class Sim():
                          "shape_id": self.shape_id,
                          "probe_radius": self.probe_radius,
                          "offset": self.center_world}, outfile, sort_keys=True, indent=1)
+
+        if self.record:
+            p.stopStateLogging(logId)
+            os.chdir(self.plotPath)
+            subprocess.call([
+            'ffmpeg', '-framerate', '8', '-i', '%03d.png', '-r', '30', '-pix_fmt', 'yuv420p',
+            'plot.mp4'])
+
+            for file_name in glob.glob("*.png"):
+                os.remove(file_name)
 
         return self.traj
 
