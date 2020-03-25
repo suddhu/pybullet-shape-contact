@@ -26,7 +26,6 @@ colname =  [
   "x of contact normal", 
   "y of contact normal", 
   "z of contact normal", 
-  "force magnitude",
   "x of pusher position", 
   "y of pusher position", 
   "z of pusher position",
@@ -34,7 +33,6 @@ colname =  [
   "y of ground truth object pose", 
   "z of ground truth object pose", 
   "yaw of ground truth object pose",
-  "time"
  ]
 
 class Sim():
@@ -118,7 +116,6 @@ class Sim():
         # pre-define the trajectory/force vectors
         self.traj = np.zeros((self.simLength, 5))
         self.contactPt = np.zeros((self.simLength, 2))
-        self.contactForce = np.zeros((self.simLength, ))
         self.contactNormal = np.zeros((self.simLength, 2))
         self.scan_contact_pts = []
 
@@ -299,14 +296,14 @@ class Sim():
                 # get contact information
                 contactInfo = p.getContactPoints(self.kukaId, self.blockId)
 
+                f_c_temp = 0
+
                 # get the net contact force between robot and block
                 if len(contactInfo)>0:
-                    f_c_temp = 0
                     for c in range(len(contactInfo)):
                         f_c_temp += contactInfo[c][9]
                     
                     # print("f_c_temp: ", f_c_temp)
-                    self.contactForce[self.simTime] = f_c_temp
                     self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                     self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
                     self.scan_contact_pts.append(contactInfo[0][5])
@@ -318,7 +315,7 @@ class Sim():
                     self.plotter(self.simTime)
                     
                 # If in contact, break
-                if self.contactForce[self.simTime] > self.threshold: 
+                if f_c_temp > self.threshold: 
                     self.simTime = self.simTime + 1
                     revpath =  path[-len(path)//10:]
 
@@ -376,7 +373,6 @@ class Sim():
                 for c in range(len(contactInfo)):
                     f_c_temp += contactInfo[c][9]
                 
-                self.contactForce[self.simTime] = f_c_temp
                 self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                 self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
                 good_normal = self.contactNormal[self.simTime, :]
@@ -384,17 +380,15 @@ class Sim():
                 self.traj[self.simTime, :] = np.array([curr_pos[0], curr_pos[1], xb, yb, yaw])
 
                 if f_c_temp > self.threshold:
-                    print("f_c_temp: ", f_c_temp)
+                    # print("f_c_temp: ", f_c_temp)
                     self.scan_contact_pts.append(contactInfo[0][5])   
                     # pdb.set_trace()   
                     all_contact.append(
                     self.contactPt[self.simTime, 0:2].tolist() + [0] + 
                     self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
-                    [self.contactForce[self.simTime]] + 
                     self.traj[self.simTime, 0:2].tolist() + [0] +
                     self.traj[self.simTime, 2:4].tolist() + [0] + 
-                    [self.traj[self.simTime, 4]] + 
-                    [time.time() - self.start_time])
+                    [self.traj[self.simTime, 4]])
 
 
             # plot
@@ -405,7 +399,7 @@ class Sim():
             self.simTime = self.simTime + 1
 
             # 3.5 break if we collect enough
-            if len(self.scan_contact_pts) > self.limit:
+            if len(all_contact) == self.limit:
                 break
 
         with open(jsonfilename, 'w') as outfile:
@@ -413,7 +407,8 @@ class Sim():
                        '__title__': colname, 
                          "shape_id": self.shape_id,
                          "probe_radius": self.probe_radius,
-                         "offset": self.center_world}, outfile, sort_keys=True, indent=1)
+                         "offset": self.center_world, 
+                         "limit": self.limit}, outfile, sort_keys=True, indent=1)
 
         if self.record:
             p.stopStateLogging(logId)
