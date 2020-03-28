@@ -1,3 +1,8 @@
+#!/usr/bin/python3
+
+# Sudharshan Suresh (suddhu@cmu.edu), Jan 2020
+# Simulation functions for contour following
+
 import pybullet as p
 import pybullet_data
 import time
@@ -178,6 +183,7 @@ class Sim():
         t = self.traj[i][4]
         T = matrix_from_xyzrpy([xb, yb, 0], [0, 0, t])
 
+        # ground truth shape
         if self.shape_type == 'poly' or self.shape_type == 'polyapprox':
             shape_polygon_3d_world = np.dot(T, self.shape_polygon_3d.T)
             gt = patches.Polygon(shape_polygon_3d_world.T[:,0:2], closed=True, linewidth=2, linestyle='dashed', fill=False)
@@ -186,12 +192,15 @@ class Sim():
             gt = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='dashed')
         ax.add_patch(gt)
 
+        # centroid
         t_c = np.dot(T, self.centroid.T)
         ax.plot(t_c[0], t_c[1], 'k.',  markersize=5)
 
+        # probe
         probe = patches.Circle((self.traj[i][0], self.traj[i][1]), self.probe_radius, facecolor="black", alpha=0.4)
         ax.add_patch(probe)
 
+        # contact points, normals
         if (self.contactPt[i][0] != 0) and (self.contactPt[i][1] != 0):                 
             # 2: plot contact point 
             ax.plot(self.contactPt[i][0], self.contactPt[i][1], 'rX',  markersize=12)
@@ -216,6 +225,7 @@ class Sim():
         plt.draw()
         plt.pause(0.001)
 
+        # record and save
         if self.record: 
             plt.savefig(self.plotPath + "/%03d.png" % i)
 
@@ -238,7 +248,6 @@ class Sim():
                                 
     def simulate(self):
         
-
         num = 1
         filename = 'all_contact_shape=%s_rep=%04d' % (self.shape_id, num)
         dir_base = "/home/suddhu/software/pybullet-shape-contact/data/contour_following"
@@ -264,7 +273,9 @@ class Sim():
         self.direc = [0, 0]
 
         self.simTime = 0
-        # each rough probe
+        ## --------------------
+        ## Rough probing
+        ## --------------------
         for i, (start_pos, self.direc) in enumerate(reversed(self.start_configs)):
             # ax.clear()
             curr_pos = start_pos
@@ -344,7 +355,9 @@ class Sim():
         good_normal = self.contactNormal[self.simTime - 1]
         self.direc = np.dot(tfm.euler_matrix(0,0,2) , good_normal.tolist() + [0] + [1])[0:2]
 
-        # 3. Contour following, use the normal to move along the block
+        ## --------------------
+        ## Contour following, use the normal to move along the block
+        ## --------------------
         while True:
             # 3.1 move 
             # pdb.set_trace()
@@ -410,6 +423,7 @@ class Sim():
                          "offset": self.center_world, 
                          "limit": self.limit}, outfile, sort_keys=True, indent=1)
 
+        # convert to mp4 and delete images
         if self.record:
             p.stopStateLogging(logId)
             os.chdir(self.plotPath)
@@ -420,32 +434,14 @@ class Sim():
             for file_name in glob.glob("*.png"):
                 os.remove(file_name)
 
-        return self.traj
+        return
 
-    def resetSim(self, withRandom):
-        # reset robot to nominal pose
+    # reset robot to nominal pose
+    def resetSim(self):
         for i in range(self.numJoints):
             p.resetJointState(self.kukaId, i, self.rp[i])
 
-        # reset block pose
-        if withRandom:
-            # define nominal block pose
-            nom_pose = np.array([-0.4, 0.0, 0.0]) # (x,y,theta)
-
-            # define uncertainty bounds
-            pos_bd = np.array([0.01, 0.01, 0.0])
-
-            # initialize array
-            blockInitPose = np.empty_like(pos_bd)
-
-            for i in range(nom_pose.shape[0]):
-                pert = np.random.uniform(-pos_bd[i], pos_bd[i])
-                blockInitPose[i] = nom_pose[i] + pert
-
-            blockInitOri = p.getQuaternionFromEuler([0, 0, blockInitPose[-1]])
-            p.resetBasePositionAndOrientation(self.blockId, [blockInitPose[0], blockInitPose[1], 0.0], blockInitOri)
-        else:
-            p.resetBasePositionAndOrientation(self.blockId, [-0.4, 0, 0.0], [0, 0, 0, 1])
+        p.resetBasePositionAndOrientation(self.blockId, [-0.4, 0, 0.0], [0, 0, 0, 1])
 
 if __name__ == "__main__":
     s = Sim()
