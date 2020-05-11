@@ -89,7 +89,7 @@ class Sim():
 
         # set simulation length
         self.simLength = 10000
-        self.limit = 1000
+        self.limit = 500
         self.step_size = 0.002
         self.explore_radius = 0.20
         self.init_prods = 1
@@ -327,6 +327,13 @@ class Sim():
                     
                 # If in contact, break
                 if f_c_temp > self.threshold: 
+                    all_contact.append(
+                    self.contactPt[self.simTime, 0:2].tolist() + [0] + 
+                    self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
+                    self.traj[self.simTime, 0:2].tolist() + [0] +
+                    self.traj[self.simTime, 2:4].tolist() + [0] + 
+                    [self.traj[self.simTime, 4]])
+
                     self.simTime = self.simTime + 1
                     revpath =  path[-len(path)//10:]
 
