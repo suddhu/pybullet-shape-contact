@@ -9,7 +9,7 @@ Object shape exploration pybullet simulator for shape and pose recovery work. Co
 ## Run
 
 ```
-python3 push_explorer --shape rect1
+python3 push_explorer.py --shape rect1
 ```
 - Shapes: ` rect1, rect2, rect3, hex, ellip1, ellip2, ellip3, tri1, tri2, tri3 `( `butter` is no good due to concave collisions). Models from [More than a Million Ways to Be Pushed: A High-Fidelity Experimental Dataset of Planar Pushing](https://arxiv.org/abs/1604.04038).
 - Output saved as a `.json` file with the following information: 
@@ -20,6 +20,7 @@ python3 push_explorer --shape rect1
   "x of contact normal", 
   "y of contact normal", 
   "z of contact normal", ( = 0)
+  "force magnitude",
   "x of pusher position", 
   "y of pusher position", 
   "z of pusher position", ( = 0)

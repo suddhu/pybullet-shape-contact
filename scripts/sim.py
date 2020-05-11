@@ -31,6 +31,7 @@ colname =  [
   "x of contact normal", 
   "y of contact normal", 
   "z of contact normal", 
+  "force magnitude",
   "x of pusher position", 
   "y of pusher position", 
   "z of pusher position",
@@ -121,6 +122,7 @@ class Sim():
         # pre-define the trajectory/force vectors
         self.traj = np.zeros((self.simLength, 5))
         self.contactPt = np.zeros((self.simLength, 2))
+        self.contactForce = np.zeros((self.simLength, ))
         self.contactNormal = np.zeros((self.simLength, 2))
         self.scan_contact_pts = []
 
@@ -315,6 +317,7 @@ class Sim():
                         f_c_temp += contactInfo[c][9]
                     
                     # print("f_c_temp: ", f_c_temp)
+                    self.contactForce[self.simTime] = f_c_temp
                     self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                     self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
                     self.scan_contact_pts.append(contactInfo[0][5])
@@ -330,6 +333,7 @@ class Sim():
                     all_contact.append(
                     self.contactPt[self.simTime, 0:2].tolist() + [0] + 
                     self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
+                    [self.contactForce[self.simTime]] + 
                     self.traj[self.simTime, 0:2].tolist() + [0] +
                     self.traj[self.simTime, 2:4].tolist() + [0] + 
                     [self.traj[self.simTime, 4]])
@@ -393,6 +397,7 @@ class Sim():
                 for c in range(len(contactInfo)):
                     f_c_temp += contactInfo[c][9]
                 
+                self.contactForce[self.simTime] = f_c_temp
                 self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                 self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
                 good_normal = self.contactNormal[self.simTime, :]
@@ -406,6 +411,7 @@ class Sim():
                     all_contact.append(
                     self.contactPt[self.simTime, 0:2].tolist() + [0] + 
                     self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
+                    [self.contactForce[self.simTime]] + 
                     self.traj[self.simTime, 0:2].tolist() + [0] +
                     self.traj[self.simTime, 2:4].tolist() + [0] + 
                     [self.traj[self.simTime, 4]])
