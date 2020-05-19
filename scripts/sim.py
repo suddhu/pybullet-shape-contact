@@ -165,8 +165,9 @@ class Sim():
         # print('shape file: ', urdf_file, '\n', 'init_mass: ', all_dynamics[0], ' init_lat_fric: ', all_dynamics[1], ' init_inertia: ', all_dynamics[2],
         #      ' init_spin_fric: ', all_dynamics[7])
 
-        p.changeDynamics(self.blockId, -1, mass=shape_mass, lateralFriction=fric,
+        p.changeDynamics(self.blockId, -1, mass=shape_mass, lateralFriction=1.0,
                          spinningFriction=s_fric,localInertiaDiagonal=shape_moment)
+        p.changeDynamics(self.planeId, -1, lateralFriction=fric)
 
         all_dynamics = p.getDynamicsInfo(self.blockId, -1)
 

@@ -1,27 +1,27 @@
 <?xml version="1.0"?>
-<robot name="rect1">
-  <link name="rect1_base_link">
+<robot name="pusher">
+  <link name="pusher_base_link">
     <contact>
       <lateral_friction value="0.25"/>
     </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.8374"/>
-      <inertia ixx="1e-3" ixy="0" ixz="0" iyy="1e-3" iyz="0" izz="0.001131"/>
+      <mass value="0.8"/>
+      <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001231"/>
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="rect1.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="ellip1.stl" scale="0.1 0.1 1.0"/> 
       </geometry>
       <material name="mat">
-        <color rgba="0.7148 0.7344 0.7188 1"/>
+        <color rgba="0.7148 0.0 0.7188 1"/>
       </material>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="rect1.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="ellip1.stl" scale="0.1 0.1  1.0"/> 
       </geometry>
     </collision>
   </link>
