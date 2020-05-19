@@ -57,7 +57,7 @@ class Sim():
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 200
+        self.limit = 10000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
 
         # pre-define the trajectory/force vectors
@@ -155,12 +155,13 @@ class Sim():
         jsonfilename = dir_base+'/%s.json' % filename
         p.setTimeStep(1. / 240.)
 
-        delX = np.array([1e-3, 1e-3, 0.0])
+        self.direc = np.array([1e-3, 1e-3, 0.0])
+        step_size = 1e-3
         while True:
             # time.sleep(1./240.)
 
             pusher_pos = self.observe_block(self.pusher)
-            pusher_pos = pusher_pos + delX
+            pusher_pos = pusher_pos + self.direc*step_size
             # force = alpha * direc #(box_pos - pusher_pos)
             # p.resetBaseVelocity(self.pusher, linearVelocity=[-0.05, 0, 0])
             p.changeConstraint(self.cid, np.append(pusher_pos[0:2], 0.03), maxForce=200)
@@ -227,7 +228,12 @@ class Sim():
                     [self.contactForce[self.simTime]] + 
                     self.traj[self.simTime, :].tolist())
 
-                    self.plotter(self.simTime)
+                    angle = 2
+                    good_normal = self.contactNormal[self.simTime, :]
+                    self.direc = np.dot(tfm.euler_matrix(0,0,angle) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
+                    
+                    # if self.simTime % 100 == 0:
+                    #     self.plotter(self.simTime)
                     print('contact pt: ', self.contactPt[self.simTime, :])
                     print(len(all_contact), ' Applied force magnitude = {}'.format(f_c_temp))
                     print(len(all_contact), ' Applied force vector = {}'.format(np.linalg.norm(contactInfo[0][7][:2])))
@@ -240,9 +246,8 @@ class Sim():
                 break
                 
 
-
         with open(jsonfilename, 'w') as outfile:
-            json.dump({'all_contacts': all_contact[5:],
+            json.dump({'all_contacts': all_contact,
                 '__title__': colname, 
                     "shape_id": self.shape_id,
                     "limit": self.limit}, outfile, sort_keys=True, indent=1)
