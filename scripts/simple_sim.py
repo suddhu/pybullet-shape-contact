@@ -50,14 +50,14 @@ class Sim():
         # set additional path to find kuka model
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
-        self.pusher_pose = [-0.00, -0.05, 0]
+        self.pusher_pose = [-0.00, -0.05, 0.01]
         self.origin = [0, 0, 0]
 
         # set gravity
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 10000
+        self.limit = 5000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
 
         # pre-define the trajectory/force vectors
@@ -155,7 +155,7 @@ class Sim():
         jsonfilename = dir_base+'/%s.json' % filename
         p.setTimeStep(1. / 240.)
 
-        self.direc = np.array([1e-3, 1e-3, 0.0])
+        self.direc = np.array([0, 1e-3, 0.0])
         step_size = 1e-3
         while True:
             # time.sleep(1./240.)
@@ -164,7 +164,7 @@ class Sim():
             pusher_pos = pusher_pos + self.direc*step_size
             # force = alpha * direc #(box_pos - pusher_pos)
             # p.resetBaseVelocity(self.pusher, linearVelocity=[-0.05, 0, 0])
-            p.changeConstraint(self.cid, np.append(pusher_pos[0:2], 0.03), maxForce=200)
+            p.changeConstraint(self.cid, np.append(pusher_pos[0:2], 0.01), maxForce=200)
 
             # limitForce = self.shape_mass*self.fric*10
             # local_force = np.array([-3*limitForce, 0, 0])

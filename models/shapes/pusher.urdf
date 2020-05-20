@@ -10,19 +10,20 @@
       <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001231"/>
     </inertial>
     <visual>
-      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="ellip1.stl" scale="0.1 0.1 1.0"/> 
+        <!-- <mesh filename="meshes/tool.stl"/> -->
+        	<cylinder length="0.01275" radius="0.010"/>
       </geometry>
-      <material name="mat">
-        <color rgba="0.7148 0.0 0.7188 1"/>
-      </material>
+      <material name="Grey"/>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="ellip1.stl" scale="0.1 0.1  1.0"/> 
+        <!-- <mesh filename="meshes/tool.stl"/> -->
+        	<cylinder length="0.01275" radius="0.010"/>
       </geometry>
+      <material name="Grey"/>
     </collision>
   </link>
 </robot>

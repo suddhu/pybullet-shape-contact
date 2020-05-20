@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import math
 import ik.helper as ik
 
-def is_outlier(points, thresh=3.5):
+def is_outlier(points, thresh=1.5):
     """
     Returns a boolean array with True if points are outliers and False 
     otherwise.
@@ -76,7 +76,6 @@ obj_poses = all_contacts[:,5:8]
 t = np.arange(len(contact_forces))
 
 
-
 # transform contact_points and contact_forces to poses 
 length = len(obj_poses) - 1
 ls_c = 0.0344 # pressure distribution constant
@@ -115,11 +114,11 @@ for i in range(length):
     c = (v_x/omega) * (m/f_x)
 
     # err[i, :] = np.array([v_x/omega - c2 * f_x/m, v_y/omega - c2 * f_y/m])
-    err[i, :] = np.array([v_x/omega - c2 * f_x/m, v_y/omega - c2 * f_y/m])
+    # err[i, :] = np.array([v_x/omega - c2 * f_x/m, v_y/omega - c2 * f_y/m])
 
-    # err[i, :] = np.array([v_x * m - f_x * omega * c2, v_y * m - f_y * omega * c2])
-    comps1[i, :] = np.array([v_x/omega, c2 * f_x/m])
-    comps2[i, :] = np.array([v_y/omega, c2 * f_y/m])
+    err[i, :] = np.array([v_x * m - f_x * omega * c2, v_y * m - f_y * omega * c2])
+    comps1[i, :] = np.array([v_x * m, f_x * omega * c2])
+    comps2[i, :] = np.array([v_y * m, f_y * omega * c2])
 
     f_vec[i, :] = np.array([f_x, f_y, m])
     # err[i, :] = np.array([c*c, c2])
@@ -188,4 +187,63 @@ else:
   ax1.set_ylim(ax2.get_ylim())
 
 
-plt.show()
+plt.show(block = False)
+
+length = len(obj_poses) - 1
+temp_err = np.zeros((length, 2))
+
+c_vals = np.linspace(0, 0.04, 20)
+err_x = np.zeros((len(c_vals)))
+err_y = np.zeros((len(c_vals)))
+
+k = 0
+for ls_c in c_vals:
+  print('k: ', k, ' c: ', ls_c)
+  for i in range(length):
+    x_now = obj_poses[i,:]
+    x_next = obj_poses[i + 1,:]
+    t_c = ik.transform_to_frame2d(contact_points[i,:], x_now)
+    f = ik.transform_to_frame2d(contact_forces[i,:], x_now)
+    m = cross2d(t_c, f)  # moment = r cross F
+
+    v = (x_next[0:2] - x_now[0:2])
+    v = ik.rotate_to_frame2d(v, x_now) # rotate wrt theta
+
+    omega = standardRad((x_next[2] - x_now[2]))
+
+    f_x = f[0]
+    f_y = f[1]
+    v_x = v[0]
+    v_y = v[1]
+    c2 = ls_c*ls_c
+
+    # temp_err[i, :] = np.abs(np.array([v_x/omega - c2 * f_x/m, v_y/omega - c2 * f_y/m]))
+    temp_err[i, :]  = np.array([v_x * m - f_x * omega * c2, v_y * m - f_y * omega * c2])
+    # print(temp_err[i, :])
+
+  err_x[k] = np.sqrt(np.mean((temp_err[:,0])**2)) 
+  err_y[k] = np.sqrt(np.mean((temp_err[:,1])**2))
+
+  # print('err x:', err_x[k])
+  # print('err y:', err_y[k])
+  k += 1
+    
+fig, ax = plt.subplots()
+plt.ion()
+
+idx_x = np.where(err_x == err_x.min())
+idx_y = np.where(err_y == err_y.min())
+
+plt.plot(c_vals, err_x, color='red', linestyle='-', linewidth=1, label='Error X')
+plt.plot(c_vals, err_y, color='blue', linestyle='-', linewidth=1, label='Error Y')
+plt.plot(c_vals[idx_x], err_x[idx_x], 'ro',  markersize=5)
+plt.plot(c_vals[idx_y], err_y[idx_y], 'bo',  markersize=5)
+
+plt.axhline(y=0.0, color='k', linestyle='--')
+plt.xlabel('c')
+plt.ylabel('Error')
+plt.title('Error vs. c')
+plt.grid(True)
+plt.legend()
+
+plt.show(block = True)
