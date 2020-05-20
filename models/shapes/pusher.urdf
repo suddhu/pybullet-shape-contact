@@ -15,7 +15,9 @@
         <!-- <mesh filename="meshes/tool.stl"/> -->
         	<cylinder length="0.01275" radius="0.010"/>
       </geometry>
-      <material name="Grey"/>
+      <material name="mat">
+        <color rgba="1.0 0.0 0.0 1"/>
+      </material>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -23,7 +25,6 @@
         <!-- <mesh filename="meshes/tool.stl"/> -->
         	<cylinder length="0.01275" radius="0.010"/>
       </geometry>
-      <material name="Grey"/>
     </collision>
   </link>
 </robot>

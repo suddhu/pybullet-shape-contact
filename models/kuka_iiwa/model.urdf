@@ -297,15 +297,11 @@
   <!-- Here we define the geometry of the tool. We designed the tool ourselves, so we have a mesh file that represents it.   
   Else, one can define it using a geometric representation that approximate it, like a cylinder (see commented lines) -->
   <link name="iiwa_link_ee">
-    <contact>
-      <lateral_friction value="0.25"/>
-      <spinning_friction value=".001"/>
-    </contact>
-    <!-- <inertial>
-      <origin rpy="0 0 0" xyz="0 0.0006 0.0004"/>
-      <mass value="1"/>
-      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.0036" iyz="0" izz="0.0047"/>
-    </inertial> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.8"/>
+      <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001231"/>
+    </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>

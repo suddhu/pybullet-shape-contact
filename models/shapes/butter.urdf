@@ -3,7 +3,6 @@
   <link name="butter_base_link">
     <contact>
       <lateral_friction value="0.25"/>
-      <spinning_friction value=".001"/>
     </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -13,7 +12,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="butter.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="butter.stl" scale="1.0 1.0 1.0"/> 
       </geometry>
       <material name="mat">
         <color rgba="0.7148 0.7344 0.7188 1"/>
@@ -22,7 +21,7 @@
     <collision concave="yes">
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="butter.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="butter.stl" scale="1.0 1.0 1.0"/> 
       </geometry>
     </collision>
   </link>

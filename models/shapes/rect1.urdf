@@ -12,7 +12,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="rect1.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="rect1.stl" scale="1.0 1.0 1.0"/> 
       </geometry>
       <material name="mat">
         <color rgba="0.7148 0.7344 0.7188 1"/>
@@ -21,7 +21,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="rect1.stl" scale="1.0 1.0 2.0"/> 
+        <mesh filename="rect1.stl" scale="1.0 1.0 1.0"/> 
       </geometry>
     </collision>
   </link>

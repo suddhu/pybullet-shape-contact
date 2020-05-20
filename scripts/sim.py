@@ -45,50 +45,70 @@ class Sim():
     def __init__(self, shape_id, withVis=True, withVid=False):
 
         self.start_time = time.time()
-
         self.record = withVid
 
-        # connect to pybullet server
+        ## pybullet setup
         if withVis:
             p.connect(p.GUI)
         else:
             p.connect(p.DIRECT)
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
         p.resetDebugVisualizerCamera( cameraDistance=1.0, cameraYaw=-30, cameraPitch=-50, cameraTargetPosition=[0,0,0])
-        p.setRealTimeSimulation(1)
-
+        # set gravity
+        p.setGravity(0, 0, -9.8)
         # set additional path to find kuka model
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
-        # add plane to push on (slightly below the base of the robot)
-        self.planeId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/ground_plane/ground_plane.urdf", [0, 0, -0.05], useFixedBase=True)
+        self.center_world = [-0.4, 0, 0]
+        self.shape_id = shape_id
+        shape_db = ShapeDB()
+        shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
+        self.shape_type = shape_db.shape_db[self.shape_id]['shape_type']
+        shape_moment = [1e-3, 1e-3, shape_db.shape_db[self.shape_id]['moment_of_inertia']]
+        shape_mass = shape_db.shape_db[self.shape_id]['mass']
 
+        if self.shape_type == 'poly':
+            self.shape_polygon_3d = np.hstack((np.array(shape), np.zeros((len(shape), 1)), np.ones((len(shape), 1))))
+        elif self.shape_type == 'ellip':
+            self.shape = shape[0]
+        elif self.shape_type == 'polyapprox':
+            self.shape_polygon_3d = np.hstack((np.array(shape[0]), np.zeros((len(shape[0]), 1)), np.ones((len(shape[0]), 1))))
+
+        fric = 0.25
+
+        ## load URDFs
+        # add plane to push on
+        self.planeId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/ground_plane/ground_plane.urdf", [0, 0, -0.05], useFixedBase=True)
+        p.changeDynamics(self.planeId, -1, lateralFriction=fric)
         # add the robot at the origin with fixed base
         self.kukaId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/kuka_iiwa/model.urdf", [0, 0, 0.0], useFixedBase=True)
+        # add block
+        self.blockId = p.loadURDF("/home/suddhu/software/pybullet-shape-contact/models/shapes/" + self.shape_id + ".urdf", self.center_world)
+        p.changeDynamics(self.blockId, -1, mass=shape_mass, lateralFriction=fric, localInertiaDiagonal=shape_moment)
+        all_dynamics = p.getDynamicsInfo(self.blockId, -1)
+        print('shape: ', self.shape_id , '\n','mass: ', all_dynamics[0],
+             ' lat_fric: ', all_dynamics[1], ' moment of inertia: ', all_dynamics[2],
+              ' centroid: ', all_dynamics[3], ' spin_fric: ', all_dynamics[7])
 
-        # reset the base
-        p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0.0], [0, 0, 0, 1])
+        # pdb.set_trace()
+        self.centroid = np.hstack((np.array(all_dynamics[3]), 1))
 
         # get useful robot information
         self.kukaEndEffectorIndex = 7
         self.numJoints = p.getNumJoints(self.kukaId)
-
-        self.center_world = [-0.4, 0, 0]
-
         self.block_level = 0.03
-        self.safe_level = 0.50
+
+        # reset the base
+        p.resetBasePositionAndOrientation(self.kukaId, [0, 0, 0.0], [0, 0, 0, 1])
         # reset joint states to nominal pose
+        #joint damping coefficents
+        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        self.orn = p.getQuaternionFromEuler([0, math.pi, 0]) ## ee orientation
         self.rp = [0, 0, 0, 0.5 * math.pi, 0, -math.pi * 0.5 * 0.66, 0.5*math.pi, 0]
         for i in range(self.numJoints):
             p.resetJointState(self.kukaId, i, self.rp[i])
 
-        # get the joint ids
-        self.jointInds = [i for i in range(self.numJoints)]
-
-        # set gravity
-        p.setGravity(0, 0, -9.8)
-
-        # set simulation length
+        ## sim params
         self.simLength = 10000
         self.limit = 500
         self.step_size = 0.002
@@ -97,9 +117,8 @@ class Sim():
         if self.init_prods > 1 and self.init_prods % 2 == 1:  # correct it if not even nor 1
             self.init_prods += 1
 
-        # 2.1 populate start poses for small probing in opposite directions
+        # populate start poses for small probing in opposite directions
         self.start_configs = []
-
         # generate the start poses 
         jmax = (self.init_prods+1) // 2
         kmax = 2 if self.init_prods > 1 else 1
@@ -112,70 +131,26 @@ class Sim():
                 direc = [-np.cos(i*dth), -np.sin(i*dth)]
                 self.start_configs.append([start_pos, direc ])
 
-        #joint damping coefficents
-        self.jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        eePos = self.start_configs[0][0] + [self.block_level]
+        # self.moveToPos(eePos) 
+        self.cid = p.createConstraint(self.kukaId, self.kukaEndEffectorIndex, -1, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0, 0], eePos, self.orn)
+        
+        print(eePos)
+        for _ in range(10000):
+            p.stepSimulation()
 
-        # set robot init config: start moving from here
-        self.robotInitPoseCart = [-0.4, -0.2, 0.05] # (x,y,z)
-        self.orn = p.getQuaternionFromEuler([0, math.pi, 0])
 
-        # pre-define the trajectory/force vectors
+        # pre-define vectors
         self.traj = np.zeros((self.simLength, 5))
         self.contactPt = np.zeros((self.simLength, 2))
         self.contactForce = np.zeros((self.simLength, ))
         self.contactNormal = np.zeros((self.simLength, 2))
         self.scan_contact_pts = []
 
-        self.threshold = 0.1  # the threshold force for contact, need to be tuned
+        self.threshold = 0.0  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.010
-        # reset sim time
-        self.t = 0
 
-        self.shape_id = shape_id
-        shape_db = ShapeDB()
-        shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
-        self.shape_type = shape_db.shape_db[self.shape_id]['shape_type']
-
-        if self.shape_type == 'poly':
-            self.shape_polygon_3d = np.hstack((np.array(shape), np.zeros((len(shape), 1)), np.ones((len(shape), 1))))
-        elif self.shape_type == 'ellip':
-            self.shape = shape[0]
-        elif self.shape_type == 'polyapprox':
-            self.shape_polygon_3d = np.hstack((np.array(shape[0]), np.zeros((len(shape[0]), 1)), np.ones((len(shape[0]), 1))))
-
-        eePos = self.start_configs[0][0] + [self.block_level]
-        self.moveToPos(eePos) 
-
-        # Block: add block and update physical parameters
-        shape_moment = [1e-3, 1e-3, shape_db.shape_db[self.shape_id]['moment_of_inertia']]
-        shape_mass = shape_db.shape_db[self.shape_id]['mass']
-        fric = 0.25
-        s_fric = 0.0
-
-        urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/" + self.shape_id + ".urdf"
-        print()
-        self.blockId = p.loadURDF(urdf_file, self.center_world)
-
-        all_dynamics = p.getDynamicsInfo(self.blockId, -1)
-
-        self.centroid = np.array(all_dynamics[3])
-        self.centroid.reshape([1, 3])
-        self.centroid = np.hstack((self.centroid, 1))
-
-        # print('shape file: ', urdf_file, '\n', 'init_mass: ', all_dynamics[0], ' init_lat_fric: ', all_dynamics[1], ' init_inertia: ', all_dynamics[2],
-        #      ' init_spin_fric: ', all_dynamics[7])
-
-        p.changeDynamics(self.blockId, -1, mass=shape_mass, lateralFriction=1.0,
-                         spinningFriction=s_fric,localInertiaDiagonal=shape_moment)
-        p.changeDynamics(self.planeId, -1, lateralFriction=fric)
-
-        all_dynamics = p.getDynamicsInfo(self.blockId, -1)
-
-        print('shape file: ', urdf_file, '\n','mass: ', all_dynamics[0],
-             ' lat_fric: ', all_dynamics[1], ' moment of inertia: ', all_dynamics[2],
-              ' centroid: ', all_dynamics[3], ' spin_fric: ', all_dynamics[7])
-
-        # input('Click Enter!')
+        input('Click Enter!')
 
     def plotter(self, i): 
         ax.clear()
@@ -285,11 +260,6 @@ class Sim():
             
             for w in range(self.numJoints):
                 p.resetJointState(self.kukaId, w, self.rp[w])
-
-            # move to safe next point
-            # eePos = curr_pos +  [self.safe_level]
-            # self.moveToPos(eePos) 
-            # pdb.set_trace()
 
             j = 0
             path = []
