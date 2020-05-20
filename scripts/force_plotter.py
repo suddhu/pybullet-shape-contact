@@ -58,20 +58,20 @@ with open(path) as data_file:
 
 all_contacts = np.array(mat["all_contacts"])
 
-# contact_points = all_contacts[:,0:2]
-# contact_normals = all_contacts[:,3:5]
-# force_mags = all_contacts[:,6].reshape(-1,1)
-# contact_forces = np.multiply(force_mags, -contact_normals)
-# obj_poses = all_contacts[:,[10,11,13]]
+contact_points = all_contacts[:,0:2]
+contact_normals = all_contacts[:,3:5]
+force_mags = all_contacts[:,6].reshape(-1,1)
+contact_forces = np.multiply(force_mags, -contact_normals)
+obj_poses = all_contacts[:,[10,11,13]]
 
 # simple sim
-contact_points = all_contacts[:,0:2]
-contact_normals = all_contacts[:,2:4]
-force_mags = all_contacts[:,4].reshape(-1,1)
-contact_forces = np.multiply(force_mags, contact_normals)
+# contact_points = all_contacts[:,0:2]
+# contact_normals = all_contacts[:,2:4]
+# force_mags = all_contacts[:,4].reshape(-1,1)
+# contact_forces = np.multiply(force_mags, contact_normals)
 # contact_forces = contact_normals
 
-obj_poses = all_contacts[:,5:8]
+# obj_poses = all_contacts[:,5:8]
 
 t = np.arange(len(contact_forces))
 

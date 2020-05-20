@@ -29,11 +29,17 @@ plt.show()
 colname =  [
   "x of contact position", 
   "y of contact position", 
+  "z of contact position", 
   "x of contact normal", 
   "y of contact normal", 
+  "z of contact normal", 
   "force magnitude",
+  "x of pusher position", 
+  "y of pusher position", 
+  "z of pusher position",
   "x of ground truth object pose", 
   "y of ground truth object pose", 
+  "z of ground truth object pose", 
   "yaw of ground truth object pose",
  ]
 
@@ -51,18 +57,19 @@ class Sim():
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
         self.pusher_pose = [-0.00, -0.05, 0.01]
-        self.origin = [0, 0, 0]
+        self.center_world = [0, 0, 0]
 
         # set gravity
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 5000
+        self.limit = 2000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
+        self.probe_radius = 0.010
 
         # pre-define the trajectory/force vectors
         # pre-define the trajectory/force vectors
-        self.traj = np.zeros((self.limit, 3))
+        self.traj = np.zeros((self.limit, 5))
         self.contactPt = np.zeros((self.limit, 2))
         self.contactForce = np.zeros((self.limit, ))
         self.contactNormal = np.zeros((self.limit, 2))
@@ -88,7 +95,7 @@ class Sim():
 
         urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/" + self.shape_id + ".urdf"
         print()
-        self.box = p.loadURDF(urdf_file, self.origin)
+        self.box = p.loadURDF(urdf_file, self.center_world)
 
         p.changeDynamics(self.box, -1, mass=self.shape_mass, lateralFriction=self.fric,
                          localInertiaDiagonal=shape_moment)
@@ -156,7 +163,7 @@ class Sim():
         p.setTimeStep(1. / 240.)
 
         self.direc = np.array([0, 1e-3, 0.0])
-        step_size = 1e-3
+        step_size = 1.0e-3
         while True:
             # time.sleep(1./240.)
 
@@ -164,7 +171,7 @@ class Sim():
             pusher_pos = pusher_pos + self.direc*step_size
             # force = alpha * direc #(box_pos - pusher_pos)
             # p.resetBaseVelocity(self.pusher, linearVelocity=[-0.05, 0, 0])
-            p.changeConstraint(self.cid, np.append(pusher_pos[0:2], 0.01), maxForce=200)
+            p.changeConstraint(self.cid, np.append(pusher_pos[0:2], 0.01), maxForce=20)
 
             # limitForce = self.shape_mass*self.fric*10
             # local_force = np.array([-3*limitForce, 0, 0])
@@ -180,31 +187,13 @@ class Sim():
 
             contactInfo = p.getContactPoints(self.box, self.pusher)
             box_pos = self.observe_block(self.box)
+            pusher_pos = self.observe_block(self.pusher)
 
             # while not self.static_environment():
             #     # pdb.set_trace()
             #     for _ in range(10):
             #         # time.sleep(1./240.)
-            #         p.stepSimulation()
-
-            # self.contactForce[self.simTime] = np.linalg.norm(force)
-            # self.contactPt[self.simTime, :] =  push_pt[0:2]
-            # self.contactNormal[self.simTime, :] =  force[0:2] /np.linalg.norm(force[0:2])
-            # self.traj[self.simTime, :] = box_pos
-
-            # all_contact.append(
-            # self.contactPt[self.simTime, 0:2].tolist() + 
-            # self.contactNormal[self.simTime, 0:2].tolist() + 
-            # [self.contactForce[self.simTime]] + 
-            # self.traj[self.simTime, :].tolist())
-
-            # self.plotter(self.simTime)
-
-            # print('contact pt: ', self.contactPt[self.simTime, :])
-            # print(len(all_contact), ' Applied force magnitude = {}'.format(f_c_temp))
-            # print(len(all_contact), ' Applied force vector = {}'.format(np.linalg.norm(f_c_temp)))
-            # self.simTime = self.simTime + 1
-            
+            #         p.stepSimulation()       
 
             f_c_temp = 0
 
@@ -220,13 +209,15 @@ class Sim():
                     self.contactPt[self.simTime, :] =  contactInfo[0][5][:2]
                     self.contactNormal[self.simTime, :] = contactInfo[0][7][:2]
                     print(self.contactNormal[self.simTime, :])
-                    self.traj[self.simTime, :] = box_pos
+                    self.traj[self.simTime, :] = np.append(pusher_pos[0:2], box_pos)
 
                     all_contact.append(
-                    self.contactPt[self.simTime, 0:2].tolist() + 
-                    self.contactNormal[self.simTime, 0:2].tolist() + 
+                    self.contactPt[self.simTime, 0:2].tolist() + [0] + 
+                    self.contactNormal[self.simTime, 0:2].tolist() + [0] + 
                     [self.contactForce[self.simTime]] + 
-                    self.traj[self.simTime, :].tolist())
+                    self.traj[self.simTime, 0:2].tolist() + [0] +
+                    self.traj[self.simTime, 2:4].tolist() + [0] + 
+                    [self.traj[self.simTime, 4]])
 
                     angle = 2
                     good_normal = self.contactNormal[self.simTime, :]
@@ -244,14 +235,14 @@ class Sim():
             # 3.5 break if we collect enough
             if len(all_contact) == self.limit:
                 break
-                
 
         with open(jsonfilename, 'w') as outfile:
             json.dump({'all_contacts': all_contact,
-                '__title__': colname, 
-                    "shape_id": self.shape_id,
-                    "limit": self.limit}, outfile, sort_keys=True, indent=1)
-                    
+                        '__title__': colname, 
+                            "shape_id": self.shape_id,
+                            "probe_radius": self.probe_radius,
+                            "offset": self.center_world, 
+                            "limit": self.limit}, outfile, sort_keys=True, indent=1)                  
         return
 
     def plotter(self, i): 
