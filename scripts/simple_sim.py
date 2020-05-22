@@ -169,7 +169,7 @@ class Sim():
         self.direc = np.array([0, 1.0, 0.0])
         step_size = 1.0e-3
         while True:
-            time.sleep(1./240.)
+            # time.sleep(1./240.)
 
             pusher_pos = self.observe_block(self.pusher)
             pusher_pos = pusher_pos + self.direc*step_size
@@ -220,7 +220,7 @@ class Sim():
                 break
 
         with open(jsonfilename, 'w') as outfile:
-            json.dump({'all_contacts': all_contact,
+            json.dump({'all_contacts': all_contact[::20],
                         '__title__': colname, 
                             "shape_id": self.shape_id,
                             "probe_radius": self.probe_radius,
