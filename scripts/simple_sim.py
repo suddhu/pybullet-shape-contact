@@ -19,6 +19,7 @@ import tf.transformations as tfm
 import json, os
 import subprocess, glob
 import argparse
+import push_err_plotter as ep
 
 STATIC_VELOCITY_THRESHOLD = 1e-4
 
@@ -64,7 +65,7 @@ class Sim():
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 4000
+        self.limit = 2000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.010
 
@@ -132,7 +133,7 @@ class Sim():
              ' lat_fric: ', all_dynamics[1], ' moment of inertia: ', all_dynamics[2],
               ' centroid: ', all_dynamics[3], ' spin_fric: ', all_dynamics[7])
 
-        input('Click Enter!')
+        # input('Click Enter!')
 
     def observe_block(self, blockID):
         blockPose = p.getBasePositionAndOrientation(blockID)
@@ -178,7 +179,6 @@ class Sim():
             p.changeConstraint(self.cid, [pusher_pos[0], pusher_pos[1], 0.01], maxForce=20)
             p.stepSimulation()
             # pdb.set_trace()
-
             contactInfo = p.getContactPoints(self.box, self.pusher)
             box_pos = self.observe_block(self.box)
             pusher_pos = self.observe_block(self.pusher)  
@@ -220,13 +220,14 @@ class Sim():
                 break
 
         with open(jsonfilename, 'w') as outfile:
-            json.dump({'all_contacts': all_contact[::20],
+            json.dump({'all_contacts': all_contact[::1],
                         '__title__': colname, 
                             "shape_id": self.shape_id,
                             "probe_radius": self.probe_radius,
                             "offset": self.center_world, 
                             "limit": self.limit}, outfile, sort_keys=True, indent=1)      
         print('file: ', jsonfilename)
+        ep.run(jsonfilename)
         return
 
     def plotter(self, i): 
