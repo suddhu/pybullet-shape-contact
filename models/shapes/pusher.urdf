@@ -1,6 +1,21 @@
 <?xml version="1.0"?>
 <robot name="pusher">
-  <link name="pusher_base_link">
+  <link name="pusher_base">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.8"/>
+      <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001231"/>
+    </inertial>
+  </link>
+
+  <joint name="pusher_1_joint" type="fixed">
+    <axis xyz="0 0 1"/>
+    <parent link="pusher_base"/>
+    <child link="pusher_1"/>
+    <origin rpy="0 0 0" xyz="0.02 0 0"/>
+  </joint>
+
+  <link name="pusher_1">
     <contact>
       <lateral_friction value="0.25"/>
     </contact>
@@ -13,7 +28,7 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.01275" radius="0.010"/>
+        	<cylinder length="0.01275" radius="0.005"/>
       </geometry>
       <material name="mat">
         <color rgba="1.0 0.0 0.0 1"/>
@@ -23,8 +38,44 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.01275" radius="0.010"/>
+        	<cylinder length="0.01275" radius="0.005"/>
       </geometry>
     </collision>
   </link>
+
+  <joint name="pusher_2_joint" type="fixed">
+    <axis xyz="0 0 1"/>
+    <parent link="pusher_base"/>
+    <child link="pusher_2"/>
+    <origin rpy="0 0 0" xyz="-0.02 0 0"/>
+  </joint>
+
+  <link name="pusher_2">
+    <contact>
+      <lateral_friction value="0.25"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.8"/>
+      <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001231"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <!-- <mesh filename="meshes/tool.stl"/> -->
+        	<cylinder length="0.01275" radius="0.005"/>
+      </geometry>
+      <material name="mat">
+        <color rgba="1.0 0.0 0.0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <!-- <mesh filename="meshes/tool.stl"/> -->
+        	<cylinder length="0.01275" radius="0.005"/>
+      </geometry>
+    </collision>
+  </link>
+
 </robot>
