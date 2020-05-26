@@ -64,18 +64,19 @@ class Sim():
         # set simulation length
         self.limit = 2000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
-        self.probe_radius = 0.010
+        self.probe_radius = 0.005
 
         self.pusher_pose = [0, -(self.probe_radius + 0.06), 0.01]
         # self.pusher_pose_2 = [0.02, -(self.probe_radius + 0.06), 0.01]
 
         # pre-define the trajectory/force vectors
-        self.traj = np.zeros((self.limit, 7))
-        self.contactPt = np.zeros((self.limit, 4))
-        self.contactForce = np.zeros((self.limit, 2))
-        self.contactNormal = np.zeros((self.limit, 4))
-        self.hasContact = np.full((self.limit, 2), False)
-
+        self.pose_true = np.zeros((self.limit, 3))
+        self.pusher_position = np.zeros((2, self.limit, 2))
+        self.contactPt = np.zeros((2, self.limit, 2))
+        self.contactForce = np.zeros((2, self.limit))
+        self.contactNormal = np.zeros((2, self.limit, 2))
+        self.hasContact = np.full((2, self.limit), False)
+        
         self.shape_id = shape_id
         shape_db = ShapeDB()
         shape = shape_db.shape_db[self.shape_id]['shape'] # shape of the objects presented as polygon.
@@ -171,20 +172,20 @@ class Sim():
         self.direc = np.array([0, 1.0, 0.0])
         step_size = 1.0e-3
         while True:
-            time.sleep(1./240.)
+            # time.sleep(1./240.)
 
             pusher_pos = self.observe_block(self.pusher) + self.direc*step_size
 
             # limitForce = self.shape_mass*10*0.8
             # print(limitForce)
             if (self.contact_count > 0):
-                if not self.hasContact[self.contact_count - 1, 0]:
-                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.05]) ## anti clock
+                if not self.hasContact[0, self.contact_count - 1]:
+                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.2]) ## anti clock
                 # elif not self.hasContact[self.contact_count - 1, 1]:
-                #     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.05]) ## clock
+                #     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.1]) ## clock
             else:
                 orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2]]) ## ee orientation
-            p.changeConstraint(self.cid, jointChildPivot=[pusher_pos[0],  pusher_pos[1], 0.01], jointChildFrameOrientation=orn, maxForce=20)
+            p.changeConstraint(self.cid, jointChildPivot=[pusher_pos[0],  pusher_pos[1], 0.01], jointChildFrameOrientation=orn, maxForce=13)
 
             p.stepSimulation()
             # pdb.set_trace()
@@ -198,9 +199,9 @@ class Sim():
             # get the net contact force between robot and block
             if ((len(contactInfo_1)>0) or (len(contactInfo_2)>0)):
                 # pdb.set_trace()
-                self.traj[self.contact_count, 0:2] = pusher_pos_1[0:2]
-                self.traj[self.contact_count, 2:4] = pusher_pos_2[0:2]
-                self.traj[self.contact_count, 4:7] = box_pos
+                self.pusher_position[0, self.contact_count, :] = pusher_pos_1[0:2]
+                self.pusher_position[1, self.contact_count, :] = pusher_pos_2[0:2]
+                self.pose_true[self.contact_count, :] = box_pos
                 
                 # 1st pusher
                 f_c_temp_1 = f_c_temp_2 = 0
@@ -208,26 +209,27 @@ class Sim():
                     for c in range(len(contactInfo_1)):
                         f_c_temp_1 += contactInfo_1[c][9]
                     
-                    self.contactForce[self.contact_count, 0] = f_c_temp_1
-                    self.contactPt[self.contact_count, 0:2] =  contactInfo_1[0][5][:2]
-                    self.contactNormal[self.contact_count, 0:2] = contactInfo_1[0][7][:2]
-                    self.hasContact[self.contact_count, 0] = True
+                    self.contactForce[0, self.contact_count] = f_c_temp_1
+                    self.contactPt[0, self.contact_count, :] =  contactInfo_1[0][5][:2]
+                    self.contactNormal[0, self.contact_count, :] = contactInfo_1[0][7][:2]
+                    self.hasContact[0, self.contact_count] = True
 
                 # 2nd pusher 
                 if (len(contactInfo_2)>0):
                     for c in range(len(contactInfo_2)):
                         f_c_temp_2 += contactInfo_2[c][9]
                     
-                    self.contactForce[self.contact_count, 1] = f_c_temp_2
-                    self.contactPt[self.contact_count, 2:4] =  contactInfo_2[0][5][:2]
-                    self.contactNormal[self.contact_count, 2:4] = contactInfo_2[0][7][:2]
-                    self.hasContact[self.contact_count, 1] = True
+                    self.contactForce[1, self.contact_count] = f_c_temp_2
+                    self.contactPt[1, self.contact_count, :] =  contactInfo_2[0][5][:2]
+                    self.contactNormal[1, self.contact_count, :] = contactInfo_2[0][7][:2]
+                    self.hasContact[1, self.contact_count] = True
 
-                if self.hasContact[self.contact_count, 0] and self.hasContact[self.contact_count, 1]:
-                    good_normal = self.contactNormal[self.contact_count, 0:2]
+                if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]:
+                    good_normal = (self.contactNormal[0, self.contact_count, :] + self.contactNormal[1, self.contact_count, :])/2.0
+                    print('good normal: ', good_normal)
                     self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
-                elif self.hasContact[self.contact_count, 0]:
-                    good_normal = self.contactNormal[self.contact_count, 0:2]
+                elif self.hasContact[0, self.contact_count]:
+                    good_normal = self.contactNormal[0, self.contact_count, :]
                     self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
                 # else:
                 #     good_normal = self.contactNormal[self.contact_count, 2:4]
@@ -241,13 +243,16 @@ class Sim():
             # 3.5 break if we collect enough
             if self.contact_count == self.limit:
                 break
+        
+        skip = 1
 
         with open(jsonfilename, 'w') as outfile:
-            json.dump({'has_contact': self.hasContact.tolist(),
-                        'contact_force': self.contactForce.tolist(),
-                        'contact_normal': self.contactNormal.tolist(),
-                        'contact_point': self.contactPt.tolist(),
-                        'traj': self.traj.tolist(),
+            json.dump({'has_contact': self.hasContact[:, ::skip].tolist(),
+                        'contact_force': self.contactForce[:, ::skip].tolist(),
+                        'contact_normal': self.contactNormal[:, ::skip, :].tolist(),
+                        'contact_point': self.contactPt[:, ::skip, :].tolist(),
+                        'pose_true': self.pose_true[::skip, :].tolist(),
+                        'pusher': self.pusher_position[:, ::skip, :].tolist(),
                         '__title__': colname, 
                         "shape_id": self.shape_id,
                         "probe_radius": self.probe_radius,
@@ -260,7 +265,7 @@ class Sim():
     def plotter(self, i): 
         ax.clear()
         # 1: plot object
-        T = matrix_from_xyzrpy([self.traj[i, 4], self.traj[i, 5], 0], [0, 0, self.traj[i, 6]])
+        T = matrix_from_xyzrpy([self.pose_true[i, 0], self.pose_true[i, 1], 0], [0, 0, self.pose_true[i, 2]])
 
         # ground truth shape
         if self.shape_type == 'poly' or self.shape_type == 'polyapprox':
@@ -271,37 +276,36 @@ class Sim():
             gt = patches.Ellipse(trans[0:2], self.shape[0]*2, self.shape[1]*2, angle=angles[2]/np.pi*180.0, fill=False, linewidth=1, linestyle='dashed')
         ax.add_patch(gt)
         
-        for j in range(i):
-            ax.plot(self.traj[j, 0], self.traj[j, 1], 'b.',  markersize=5,  alpha=0.01)
+        # for j in range(i):
+        #     ax.plot(self.traj[j, 0], self.traj[j, 1], 'b.',  markersize=5,  alpha=0.01)
         
         # centroid
         t_c = np.dot(T, self.centroid.T)
         ax.plot(t_c[0], t_c[1], 'k.',  markersize=5)
 
         # probes
-        probe = patches.Circle((self.traj[i][0], self.traj[i][1]), self.probe_radius, facecolor="red")
+        probe = patches.Circle((self.pusher_position[0][i][0], self.pusher_position[0][i][1]), self.probe_radius, facecolor="red")
         ax.add_patch(probe)
-        probe = patches.Circle((self.traj[i][2], self.traj[i][3]), self.probe_radius, facecolor="red")
+        probe = patches.Circle((self.pusher_position[1][i][0], self.pusher_position[1][i][1]), self.probe_radius, facecolor="red")
         ax.add_patch(probe)
-        ax.arrow(self.traj[i][2], self.traj[i][3], 
+        ax.arrow(self.pusher_position[0][i][0], self.pusher_position[0][i][1], 
             self.direc[0]*0.02, self.direc[1]*0.02, 
             head_width=0.001, head_length=0.01, fc='r', ec='r')
-        ax.arrow(self.traj[i][0], self.traj[i][1], 
+        ax.arrow(self.pusher_position[1][i][0], self.pusher_position[1][i][1], 
             self.direc[0]*0.02, self.direc[1]*0.02, 
             head_width=0.001, head_length=0.01, fc='r', ec='r')
-
 
         # 2: plot contact point 
-        if self.hasContact[i][0]:
-            ax.plot(self.contactPt[i][0], self.contactPt[i][1], 'ko',  markersize=6)
-            ax.arrow(self.contactPt[i][0], self.contactPt[i][1], 
-                self.contactNormal[i][0]*0.02, self.contactNormal[i][1]*0.02, 
+        if self.hasContact[0][i]:
+            ax.plot(self.contactPt[0][i][0], self.contactPt[0][i][1], 'ko',  markersize=6)
+            ax.arrow(self.contactPt[0][i][0], self.contactPt[0][i][1], 
+                self.contactNormal[0][i][0]*0.02, self.contactNormal[0][i][1]*0.02, 
                 head_width=0.001, head_length=0.01, fc='y', ec='g')
 
-        if self.hasContact[i][1]:
-            ax.plot(self.contactPt[i][2], self.contactPt[i][3], 'ko',  markersize=6)
-            ax.arrow(self.contactPt[i][2], self.contactPt[i][3], 
-                self.contactNormal[i][2]*0.02, self.contactNormal[i][3]*0.02, 
+        if self.hasContact[1][i]:
+            ax.plot(self.contactPt[1][i][0], self.contactPt[1][i][1], 'ko',  markersize=6)
+            ax.arrow(self.contactPt[1][i][0], self.contactPt[1][i][1], 
+                self.contactNormal[1][i][0]*0.02, self.contactNormal[1][i][1]*0.02, 
                 head_width=0.001, head_length=0.01, fc='y', ec='g')
 
         

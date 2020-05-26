@@ -55,7 +55,7 @@ def standardRad(t):
     t = math.fmod(t - np.pi, -2*np.pi) + np.pi
   return t;
 
-def traj_plot(i, x_actual, x_meas, shape_polygon_3d, contact_points, contact_normals, pusher_pos, probe_radius, ax): 
+def traj_plot(i, x_actual, x_meas, shape_polygon_3d, contact_points, contact_normals, pusher_pos, hasContact, probe_radius, ax): 
     ax.clear()
 
     # 1: plot ground turth 
@@ -64,24 +64,46 @@ def traj_plot(i, x_actual, x_meas, shape_polygon_3d, contact_points, contact_nor
     gt = patches.Polygon(shape_polygon_3d_world.T[:,0:2], closed=True, linewidth=2, linestyle='--', fill=False, ec='black')
     ax.add_patch(gt)
 
+    # centroid
+    centroid = np.array([0, 0, 0])
+    centroid = np.hstack((centroid, 1))
+    t_c = np.dot(T, centroid.T)
+    ax.plot(t_c[0], t_c[1], 'k.',  markersize=5)
+
     # plot computed 
     T = matrix_from_xyzrpy([x_meas[i, 0], x_meas[i, 1], 0], [0, 0, x_meas[i, 2]])
     shape_polygon_3d_world = np.dot(T, shape_polygon_3d.T)     # ground truth shape
     meas = patches.Polygon(shape_polygon_3d_world.T[:,0:2], closed=True, linewidth=2, linestyle='-', fill=False, ec='green')
     ax.add_patch(meas) 
 
+    # centroid
+    t_c = np.dot(T, centroid.T)
+    ax.plot(t_c[0], t_c[1], 'g.',  markersize=5)
+    
     # probe
     probe = patches.Circle((pusher_pos[i,0], pusher_pos[i,1]), probe_radius, facecolor="red")
     ax.add_patch(probe)
 
-    # 2: plot contact point 
-    ax.plot(contact_points[i, 0], contact_points[i, 1], 'ko',  markersize=6)
+    probe = patches.Circle((pusher_pos[i,2], pusher_pos[i,3]), probe_radius, facecolor="red")
+    ax.add_patch(probe)
 
-    # 3: plot contact normal
-    ax.arrow(contact_points[i, 0], contact_points[i, 1], 
-        contact_normals[i, 0]*0.02, contact_normals[i, 1]*0.02, 
-        head_width=0.001, head_length=0.01, fc='y', ec='g')
-            
+    # 2: plot contact point 
+    if hasContact[i, 0]:
+        ax.plot(contact_points[i, 0], contact_points[i, 1], 'ko',  markersize=6)
+    if hasContact[i, 1]:
+        ax.plot(contact_points[i, 2], contact_points[i, 3], 'ko',  markersize=6)
+
+    if hasContact[i, 0]:
+        # 3: plot contact normal
+        ax.arrow(contact_points[i, 0], contact_points[i, 1], 
+            contact_normals[i, 0]*0.02, contact_normals[i, 1]*0.02, 
+            head_width=0.001, head_length=0.01, fc='y', ec='g')
+    if hasContact[i, 1]:
+        # 3: plot contact normal
+        ax.arrow(contact_points[i, 2], contact_points[i, 3], 
+            contact_normals[i, 2]*0.02, contact_normals[i, 3]*0.02, 
+            head_width=0.001, head_length=0.01, fc='y', ec='g')
+
     ax.set_xlim(-0.2, 0.2)
     ax.set_ylim(-0.2, 0.2)
     ax.set_title('timestamp: ' + str(i))
@@ -159,16 +181,11 @@ def run(shape):
   with open(path) as data_file:    
       mat = json.load(data_file)
 
-  all_contacts = np.array(mat["all_contacts"])
-
-  contact_points = all_contacts[:,0:2]
-  contact_normals = all_contacts[:,3:5]
-  force_mags = all_contacts[:,6].reshape(-1,1)
-  contact_forces = np.multiply(force_mags, -contact_normals)
-  obj_poses = all_contacts[:,[10,11,13]]
-  pusher_pos = all_contacts[:,7:9]
-
-  t = np.arange(len(contact_forces))
+  has_contacts = np.array(mat["has_contact"])
+  contact_points = np.array(mat["contact_point"])
+  contact_normals = np.array(mat["contact_normal"])
+  obj_poses = np.array(mat["traj"])[:, 4:7]
+  pusher_pos = np.array(mat["traj"])[:, 0:4]
 
   # transform contact_points and contact_forces to poses 
   length = len(obj_poses) - 1
@@ -177,63 +194,62 @@ def run(shape):
   err = np.zeros((length, 3))
   comps1 = np.zeros((length, 3))
   comps2 = np.zeros((length, 3))
-  f_vec = np.zeros((length, 3))
 
-  v_vec = np.zeros((length, 3))
-  for i in range(length):
+#   for i in range(length):
 
-    x_now = obj_poses[i,:]
-    x_next = obj_poses[i + 1,:]
+#     x_now = obj_poses[i,:]
+#     x_next = obj_poses[i + 1,:]
 
-    # pushit_slip_cylinder
-    x_delta = pushit_slip_cylinder(x_now, pusher_pos[i, :], pusher_pos[i + 1, :], contact_points[i, :], contact_normals[i, :], fric, ls_c)
+#     # pdb.set_trace()
+#     # pushit_slip_cylinder
+#     x_delta = pushit_slip_cylinder(x_now, pusher_pos[i, 0:2], pusher_pos[i + 1, 0:2], contact_points[i, :], contact_normals[i, :], fric, ls_c)
  
-    x_delta_actual = x_next - x_now
-    err[i,:] = x_delta_actual - x_delta
-    comps1[i,:] = x_delta
-    comps2[i, :] = x_delta_actual
-    # print('x_delta: ', x_delta, 'x_delta_actual: ', x_delta_actual)
+#     x_delta_actual = x_next - x_now
+#     err[i,:] = x_delta_actual - x_delta
+#     comps1[i,:] = x_delta
+#     comps2[i, :] = x_delta_actual
+#     # print('x_delta: ', x_delta, 'x_delta_actual: ', x_delta_actual)
 
-  plt.subplot(4, 1, 1)
-  plt.plot(range(length), err[:,0], color='red', linestyle='-', linewidth=2, label='x')
-  plt.plot(range(length), err[:,1], color='yellow', linestyle='-', linewidth=2, label='y')
-  plt.plot(range(length), err[:,2], color='green', linestyle='-', linewidth=2, label='theta')
-  plt.axhline(y=0.0, color='k', linestyle='--')
-  plt.xlabel('time step')
-  plt.ylabel('Error')
-  plt.title('Error vs. time step')
-  plt.grid(True)
-  plt.legend()
+#   plt.subplot(4, 1, 1)
+#   plt.plot(range(length), err[:,0], color='red', linestyle='-', linewidth=2, label='x')
+#   plt.plot(range(length), err[:,1], color='yellow', linestyle='-', linewidth=2, label='y')
+#   plt.plot(range(length), err[:,2], color='green', linestyle='-', linewidth=2, label='theta')
+#   plt.axhline(y=0.0, color='k', linestyle='--')
+#   plt.xlabel('time step')
+#   plt.ylabel('Error')
+#   plt.title('Error vs. time step')
+#   plt.grid(True)
+#   plt.legend()
 
-  plt.subplot(4, 1, 2)
-  plt.plot(range(length), comps1[:,0], color='blue', linestyle='-', linewidth=2, label='x pred')
-  plt.plot(range(length), comps2[:,0], color='orange', linestyle='-', linewidth=2, label='x actual')
-  plt.axhline(y=0.0, color='k', linestyle='--')
-  plt.xlabel('time step')
-  plt.ylabel('X computed')
-  plt.title('X vs. time step')
-  plt.grid(True)
-  plt.legend()
+#   plt.subplot(4, 1, 2)
+#   plt.plot(range(length), comps1[:,0], color='blue', linestyle='-', linewidth=2, label='x pred')
+#   plt.plot(range(length), comps2[:,0], color='orange', linestyle='-', linewidth=2, label='x actual')
+#   plt.axhline(y=0.0, color='k', linestyle='--')
+#   plt.xlabel('time step')
+#   plt.ylabel('X computed')
+#   plt.title('X vs. time step')
+#   plt.grid(True)
+#   plt.legend()
 
-  plt.subplot(4, 1, 3)
-  plt.plot(range(length), comps1[:,1], color='blue', linestyle='-', linewidth=2, label='y pred')
-  plt.plot(range(length), comps2[:,1], color='orange', linestyle='-', linewidth=2, label='y actual')
-  plt.axhline(y=0.0, color='k', linestyle='--')
-  plt.xlabel('time step')
-  plt.ylabel('Y computed')
-  plt.title('Y vs. time step')
-  plt.grid(True)
-  plt.legend()
+#   plt.subplot(4, 1, 3)
+#   plt.plot(range(length), comps1[:,1], color='blue', linestyle='-', linewidth=2, label='y pred')
+#   plt.plot(range(length), comps2[:,1], color='orange', linestyle='-', linewidth=2, label='y actual')
+#   plt.axhline(y=0.0, color='k', linestyle='--')
+#   plt.xlabel('time step')
+#   plt.ylabel('Y computed')
+#   plt.title('Y vs. time step')
+#   plt.grid(True)
+#   plt.legend()
 
-  plt.subplot(4, 1, 4)
-  plt.plot(range(length), comps1[:,2], color='blue', linestyle='-', linewidth=2, label='theta pred')
-  plt.plot(range(length), comps2[:,2], color='orange', linestyle='-', linewidth=2, label='theta actual')
-  plt.axhline(y=0.0, color='k', linestyle='--')
-  plt.xlabel('time step')
-  plt.ylabel('theta computed')
-  plt.title('theta vs. time step')
-  plt.grid(True)
-  plt.legend()
+#   plt.subplot(4, 1, 4)
+#   plt.plot(range(length), comps1[:,2], color='blue', linestyle='-', linewidth=2, label='theta pred')
+#   plt.plot(range(length), comps2[:,2], color='orange', linestyle='-', linewidth=2, label='theta actual')
+#   plt.axhline(y=0.0, color='k', linestyle='--')
+#   plt.xlabel('time step')
+#   plt.ylabel('theta computed')
+#   plt.title('theta vs. time step')
+#   plt.grid(True)
+#   plt.legend()
 
   ## trajectory 
   shape_id = 'rect1'
@@ -259,20 +275,27 @@ def run(shape):
   plt.ion()
 
   for i in range(length):
-
     # pushit_slip_cylinder
-    x_delta = pushit_slip_cylinder(x_now, pusher_pos[i, :], pusher_pos[i + 1, :], contact_points[i, :], contact_normals[i, :], fric, ls_c)
-    x_now += x_delta
+    if has_contacts[i, 0]:
+        x_delta = pushit_slip_cylinder(x_now, pusher_pos[i, 0:2], pusher_pos[i + 1, 0:2], contact_points[i, 0:2], contact_normals[i, 0:2], fric, ls_c)
+        x_now += x_delta
+
+    if has_contacts[i, 1]:
+        x_delta = pushit_slip_cylinder(x_now, pusher_pos[i, 2:4], pusher_pos[i + 1, 2:4], contact_points[i, 2:4], contact_normals[i, 2:4], fric, ls_c)
+        x_now += x_delta
+
     x_meas[i + 1, :] = x_now
 
     if (i % 10 == 0):
-        traj_plot(i, x_actual, x_meas, shape_polygon_3d, contact_points,  contact_normals, pusher_pos, probe_radius, ax)
-    # print('x_delta: ', x_delta, 'x_delta_actual: ', x_delta_actual)
+        traj_plot(i, x_actual, x_meas, shape_polygon_3d, contact_points,  contact_normals, pusher_pos, has_contacts, probe_radius, ax)
+    print('x_delta: ', x_delta)
 
   plt.show(block = True)
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument("--json", type=str, default="rect1", help="Shape ID (eg: rect1, ellip2, hex)")
-  args = parser.parse_args()
-  run(args.json)
+#   parser = argparse.ArgumentParser()
+#   parser.add_argument("--json", type=str, default="rect1", help="Shape ID (eg: rect1, ellip2, hex)")
+#   args = parser.parse_args()
+#   run(args.json)
+
+  run("/home/suddhu/software/pybullet-shape-contact/data/contour_following/all_contact_shape=rect1_rep=0079.json")
