@@ -64,9 +64,10 @@ class Sim():
         # set simulation length
         self.limit = 2000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
-        self.probe_radius = 0.005
+        self.probe_radius = 0.00313
+        self.length = 0.115
 
-        self.pusher_pose = [0, -(self.probe_radius + 0.06), 0.01]
+        self.pusher_pose = [0, -(self.probe_radius + 0.06), self.length]
         # self.pusher_pose_2 = [0.02, -(self.probe_radius + 0.06), 0.01]
 
         # pre-define the trajectory/force vectors
@@ -98,7 +99,7 @@ class Sim():
         self.box = p.loadURDF(urdf_file, [self.center_world[0], self.center_world[0], 0.01] )
 
         p.changeDynamics(self.box, -1, mass=self.shape_mass, lateralFriction=fric,
-                         localInertiaDiagonal=shape_moment)
+                         localInertiaDiagonal=shape_moment, collisionMargin = 1e-6)
 
         all_dynamics = p.getDynamicsInfo(self.box, -1)
         print('file: ', urdf_file, '\n','mass: ', all_dynamics[0],
@@ -113,8 +114,8 @@ class Sim():
         self.cid = p.createConstraint(self.pusher, -1, -1, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0, 0], self.pusher_pose)
         self.numJoints = p.getNumJoints(self.pusher)
         print('self.numJoints: ', self.numJoints)
-        p.changeDynamics(self.pusher, 0, mass=self.shape_mass, lateralFriction=1.0)
-        p.changeDynamics(self.pusher, 1, mass=self.shape_mass, lateralFriction=1.0)
+        p.changeDynamics(self.pusher, 0, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
+        p.changeDynamics(self.pusher, 1, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
 
         # self.pusher_2 = p.loadURDF(urdf_file, self.pusher_pose_2)
         # self.cid_2 = p.createConstraint(self.pusher_2, -1, -1, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0, 0], self.pusher_pose_2)
@@ -125,7 +126,7 @@ class Sim():
         # add plane to push on (slightly below the base of the robot)
         self.planeId = p.loadURDF(urdf_file, [0, 0, 0], useFixedBase=True)
 
-        p.changeDynamics(self.planeId, -1, lateralFriction=1.0)
+        p.changeDynamics(self.planeId, -1, lateralFriction=1.0, collisionMargin = 1e-6)
 
         all_dynamics = p.getDynamicsInfo(self.planeId, -1)
 
@@ -185,7 +186,7 @@ class Sim():
                 #     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.1]) ## clock
             else:
                 orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2]]) ## ee orientation
-            p.changeConstraint(self.cid, jointChildPivot=[pusher_pos[0],  pusher_pos[1], 0.01], jointChildFrameOrientation=orn, maxForce=13)
+            p.changeConstraint(self.cid, jointChildPivot=[pusher_pos[0],  pusher_pos[1], self.length], jointChildFrameOrientation=orn, maxForce=5)
 
             p.stepSimulation()
             # pdb.set_trace()
@@ -226,7 +227,7 @@ class Sim():
 
                 if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]:
                     good_normal = (self.contactNormal[0, self.contact_count, :] + self.contactNormal[1, self.contact_count, :])/2.0
-                    print('good normal: ', good_normal)
+                    # print('good normal: ', good_normal)
                     self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
                 elif self.hasContact[0, self.contact_count]:
                     good_normal = self.contactNormal[0, self.contact_count, :]

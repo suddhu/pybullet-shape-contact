@@ -53,21 +53,29 @@ def standardRad(t):
 
 def Plotter(shape):
 
-  path = "/home/suddhu/software/pybullet-shape-contact/data/contour_following/"
-  path = path + shape
+  # path = "/home/suddhu/software/pybullet-shape-contact/data/contour_following/"
+  # path = path + shape
+  path = shape
   
   with open(path) as data_file:    
       mat = json.load(data_file)
 
-  all_contacts = np.array(mat["all_contacts"])
+  has_contacts = np.array(mat["has_contact"])
+  print("has_contacts:", has_contacts.shape)
+  contact_points = np.array(mat["contact_point"])
+  print("contact_points:", contact_points.shape)
+  contact_normals = np.array(mat["contact_normal"])
+  print("contact_normals:", contact_normals.shape)
+  force_mags = np.array(mat["contact_force"])
+  print("force_mags:", force_mags.shape)
+  contact_forces = np.zeros([2, force_mags.shape[1], 2])
+  contact_forces[0,:, :] = np.multiply(force_mags[0,:].reshape(-1,1), -contact_normals[0,:,:])
+  contact_forces[1,:, :] = np.multiply(force_mags[1,:].reshape(-1,1), -contact_normals[1,:,:])
+  print("contact_forces:", contact_forces.shape)
+  obj_poses = np.array(mat["pose_true"])
+  pusher_pos = np.array(mat["pusher"])
 
-  contact_points = all_contacts[:,0:2]
-  contact_normals = all_contacts[:,3:5]
-  force_mags = all_contacts[:,6].reshape(-1,1)
-  contact_forces = np.multiply(force_mags, -contact_normals)
-  obj_poses = all_contacts[:,[10,11,13]]
-
-  t = np.arange(len(contact_forces))
+  t = np.arange(has_contacts.shape[1])
 
   # transform contact_points and contact_forces to poses 
   length = len(obj_poses) - 1
@@ -81,9 +89,15 @@ def Plotter(shape):
   for i in range(length):
       x_now = obj_poses[i,:]
       x_next = obj_poses[i + 1,:]
-      t_c = ik.transform_to_frame2d(contact_points[i,:], x_now)
-      f = ik.transform_to_frame2d(contact_forces[i,:], x_now)
-      m = cross2d(t_c, f)  # moment = r cross F
+
+      f = np.array([0, 0])
+      m = 0
+      for j in range(2):
+        t_c = np.array(ik.transform_to_frame2d(contact_points[j, i,:], x_now))
+        t_f = np.array(ik.transform_to_frame2d(contact_forces[j, i,:], x_now))
+        # pdb.set_trace()
+        f = np.add(f, t_f)
+        m += cross2d(t_c, t_f)  # moment = r cross F
 
       v = (x_next[0:2] - x_now[0:2])
       v = ik.rotate_to_frame2d(v, x_now) # rotate wrt theta
@@ -136,7 +150,7 @@ def Plotter(shape):
   plt.plot(range(length), x, color='black', linestyle='-', linewidth=1, label='v_x * m - f_x * omega * c^2')
   plt.plot(range(length), comps1[~is_outlier(err[:,0]), 0], color='green', linestyle='--', linewidth=1, label='v_x * m ')
   plt.plot(range(length), comps1[~is_outlier(err[:,0]), 1], color='blue', linestyle='--', linewidth=1, label='f_x * omega * c^2')
-  plt.axhline(y=0.0, color='y', linestyle='--')
+  # plt.axhline(y=0.0, color='y', linestyle='--')
   plt.xlabel('time step')
   plt.ylabel('Err X')
   plt.title('Err X components vs. time step')
@@ -152,7 +166,7 @@ def Plotter(shape):
   plt.plot(range(length), x, color='black', linestyle='-', linewidth=1, label='v_y * m - f_y * omega * c^2')
   plt.plot(range(length), comps2[~is_outlier(err[:,1]), 0], color='green', linestyle='--', linewidth=1, label='v_y * m')
   plt.plot(range(length), comps2[~is_outlier(err[:,1]), 1], color='blue', linestyle='--', linewidth=1, label='f_y * omega * c^2')
-  plt.axhline(y=0.0, color='y', linestyle='--')
+  # plt.axhline(y=0.0, color='y', linestyle='--')
   plt.xlabel('time step')
   plt.ylabel('Err Y')
   plt.title('Err Y components vs. time step')
@@ -167,10 +181,10 @@ def Plotter(shape):
 
   plt.show(block = False)
 
-  # RMSE vs. c value
+  # # RMSE vs. c value
   length = len(obj_poses) - 1
   temp_err = np.zeros((length, 2))
-  c_vals = np.linspace(0, 0.04, 20)
+  c_vals = np.linspace(0, 0.08, 20)
   err_x = np.zeros((len(c_vals)))
   err_y = np.zeros((len(c_vals)))
   k = 0
@@ -179,9 +193,15 @@ def Plotter(shape):
     for i in range(length):
       x_now = obj_poses[i,:]
       x_next = obj_poses[i + 1,:]
-      t_c = ik.transform_to_frame2d(contact_points[i,:], x_now)
-      f = ik.transform_to_frame2d(contact_forces[i,:], x_now)
-      m = cross2d(t_c, f)  # moment = r cross F
+
+      f = np.array([0, 0])
+      m = 0
+      for j in range(2):
+        t_c = np.array(ik.transform_to_frame2d(contact_points[j, i,:], x_now))
+        t_f = np.array(ik.transform_to_frame2d(contact_forces[j, i,:], x_now))
+        # pdb.set_trace()
+        f = np.add(f, t_f)
+        m += cross2d(t_c, t_f)  # moment = r cross F
 
       v = (x_next[0:2] - x_now[0:2])
       v = ik.rotate_to_frame2d(v, x_now) # rotate wrt theta
@@ -198,7 +218,6 @@ def Plotter(shape):
 
     err_x[k] = np.sqrt(np.mean((temp_err[:,0])**2)) 
     err_y[k] = np.sqrt(np.mean((temp_err[:,1])**2))
-
 
     k += 1
       

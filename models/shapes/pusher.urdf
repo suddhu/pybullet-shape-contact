@@ -12,7 +12,7 @@
     <axis xyz="0 0 1"/>
     <parent link="pusher_base"/>
     <child link="pusher_1"/>
-    <origin rpy="0 0 0" xyz="0.02 0 0"/>
+    <origin rpy="0 0 0" xyz="0.02 0 -0.0075"/>
   </joint>
 
   <link name="pusher_1">
@@ -21,14 +21,14 @@
     </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.8"/>
+      <mass value="0.5"/>
       <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001231"/>
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.01275" radius="0.005"/>
+        	<cylinder length="0.015" radius="0.00313"/>
       </geometry>
       <material name="mat">
         <color rgba="1.0 0.0 0.0 1"/>
@@ -38,16 +38,16 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.01275" radius="0.005"/>
+        	<cylinder length="0.015" radius="0.00313"/>
       </geometry>
     </collision>
   </link>
-
+    
   <joint name="pusher_2_joint" type="fixed">
     <axis xyz="0 0 1"/>
     <parent link="pusher_base"/>
     <child link="pusher_2"/>
-    <origin rpy="0 0 0" xyz="-0.02 0 0"/>
+    <origin rpy="0 0 0" xyz="-0.02 0 -0.0075"/>
   </joint>
 
   <link name="pusher_2">
@@ -56,14 +56,14 @@
     </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-      <mass value="0.8"/>
+      <mass value="0.5"/>
       <inertia ixx="1e-3" ixy="0" ixz="0" iyx="0" iyy="1e-3" iyz="0" izx="0" izy="0" izz="0.001231"/>
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.01275" radius="0.005"/>
+        	<cylinder length="0.015" radius="0.00313"/>
       </geometry>
       <material name="mat">
         <color rgba="1.0 0.0 0.0 1"/>
@@ -73,9 +73,10 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- <mesh filename="meshes/tool.stl"/> -->
-        	<cylinder length="0.01275" radius="0.005"/>
+        	<cylinder length="0.015" radius="0.00313"/>
       </geometry>
     </collision>
   </link>
 
+<!-- dist: 0.04, length 0.115, radius 0.00313 -->
 </robot>

@@ -175,7 +175,7 @@ def pushit_slip_cylinder(x_now, probe_center_now, probe_center_next, contact_poi
 def run(shape):
 #   path = "/home/suddhu/software/pybullet-shape-contact/data/contour_following/"
 #   path = path + shape
-  
+  print("path: ", shape)
   path = shape
 
   with open(path) as data_file:    
@@ -184,8 +184,8 @@ def run(shape):
   has_contacts = np.array(mat["has_contact"])
   contact_points = np.array(mat["contact_point"])
   contact_normals = np.array(mat["contact_normal"])
-  obj_poses = np.array(mat["traj"])[:, 4:7]
-  pusher_pos = np.array(mat["traj"])[:, 0:4]
+  obj_poses = np.array(mat["pose_true"])
+  pusher_pos = np.array(mat["pusher"])
 
   # transform contact_points and contact_forces to poses 
   length = len(obj_poses) - 1
@@ -256,7 +256,7 @@ def run(shape):
   shape_db = ShapeDB()
   shape = shape_db.shape_db['rect1']['shape'] # shape of the objects presented as polygon.
   shape_type = shape_db.shape_db['rect1']['shape_type']
-  probe_radius = 0.010
+  probe_radius = 0.00313
   
   if shape_type == 'poly':
       shape_polygon_3d = np.hstack((np.array(shape), np.zeros((len(shape), 1)), np.ones((len(shape), 1))))
@@ -267,6 +267,8 @@ def run(shape):
     
   x_meas = np.zeros((len(obj_poses), 3))
   x_actual = obj_poses
+
+#   pdb.set_trace()
 
   x_now = obj_poses[0, :]
   x_meas[0, :] = x_now
@@ -293,9 +295,9 @@ def run(shape):
   plt.show(block = True)
 
 if __name__ == "__main__":
-#   parser = argparse.ArgumentParser()
-#   parser.add_argument("--json", type=str, default="rect1", help="Shape ID (eg: rect1, ellip2, hex)")
-#   args = parser.parse_args()
-#   run(args.json)
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--json", type=str, default="rect1", help="Shape ID (eg: rect1, ellip2, hex)")
+  args = parser.parse_args()
+  run(args.json)
 
-  run("/home/suddhu/software/pybullet-shape-contact/data/contour_following/all_contact_shape=rect1_rep=0079.json")
+#   run("/home/suddhu/software/pybullet-shape-contact/data/contour_following/all_contact_shape=rect1_rep=0079.json")
