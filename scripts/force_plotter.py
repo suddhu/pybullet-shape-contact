@@ -51,7 +51,7 @@ def standardRad(t):
     t = math.fmod(t - np.pi, -2*np.pi) + np.pi
   return t;
 
-def Plotter(shape):
+def run(shape):
 
   # path = "/home/suddhu/software/pybullet-shape-contact/data/contour_following/"
   # path = path + shape
@@ -245,4 +245,4 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("--json", type=str, default="rect1", help="Shape ID (eg: rect1, ellip2, hex)")
   args = parser.parse_args()
-  Plotter(args.json)
+  run(args.json)

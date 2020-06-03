@@ -19,7 +19,7 @@ import tf.transformations as tfm
 import json, os
 import subprocess, glob
 import argparse
-import push_err_plotter as ep
+import force_plotter as fp
 
 STATIC_VELOCITY_THRESHOLD = 1e-4
 
@@ -62,7 +62,7 @@ class Sim():
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 2000
+        self.limit = 5000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.00313
         self.length = 0.115
@@ -181,7 +181,7 @@ class Sim():
             # print(limitForce)
             if (self.contact_count > 0):
                 if not self.hasContact[0, self.contact_count - 1]:
-                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.2]) ## anti clock
+                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.05]) ## anti clock
                 # elif not self.hasContact[self.contact_count - 1, 1]:
                 #     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.1]) ## clock
             else:
@@ -260,7 +260,7 @@ class Sim():
                         "offset": self.center_world, 
                         "limit": self.limit}, outfile, sort_keys=True, indent=1)      
         print('file: ', jsonfilename)
-        # ep.run(jsonfilename)
+        fp.run(jsonfilename)
         return
 
     def plotter(self, i): 
