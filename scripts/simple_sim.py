@@ -62,12 +62,14 @@ class Sim():
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 5000
-        self.threshold = 0.000  # the threshold force for contact, need to be tuned
+        self.init_prods = 10
+        if self.init_prods > 1 and self.init_prods % 2 == 1:  # correct it if not even nor 1
+            self.init_prods += 1
+        self.limit = 1000
+        self.threshold = 0.01  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.00313
         self.length = 0.115
 
-        self.pusher_pose = [0, -(self.probe_radius + 0.06), self.length]
         # self.pusher_pose_2 = [0.02, -(self.probe_radius + 0.06), 0.01]
 
         # pre-define the trajectory/force vectors
@@ -96,7 +98,7 @@ class Sim():
         fric = 0.25
 
         urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/" + self.shape_id + ".urdf"
-        self.box = p.loadURDF(urdf_file, [self.center_world[0], self.center_world[0], 0.01] )
+        self.box = p.loadURDF(urdf_file, [self.center_world[0], self.center_world[1], 0.01] )
 
         p.changeDynamics(self.box, -1, mass=self.shape_mass, lateralFriction=fric,
                          localInertiaDiagonal=shape_moment, collisionMargin = 1e-6)
@@ -106,16 +108,10 @@ class Sim():
              ' lat_fric: ', all_dynamics[1], ' moment of inertia: ', all_dynamics[2],
               ' centroid: ', all_dynamics[3], ' spin_fric: ', all_dynamics[7])
 
-        urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/pusher.urdf"
 
         self.centroid = np.hstack((np.array(all_dynamics[3]), 1))
 
-        self.pusher = p.loadURDF(urdf_file, self.pusher_pose)
-        self.cid = p.createConstraint(self.pusher, -1, -1, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0, 0], self.pusher_pose)
-        self.numJoints = p.getNumJoints(self.pusher)
-        print('self.numJoints: ', self.numJoints)
-        p.changeDynamics(self.pusher, 0, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
-        p.changeDynamics(self.pusher, 1, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
+
 
         # self.pusher_2 = p.loadURDF(urdf_file, self.pusher_pose_2)
         # self.cid_2 = p.createConstraint(self.pusher_2, -1, -1, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0, 0], self.pusher_pose_2)
@@ -133,6 +129,34 @@ class Sim():
         print('shape file: ', urdf_file, '\n','mass: ', all_dynamics[0],
              ' lat_fric: ', all_dynamics[1], ' moment of inertia: ', all_dynamics[2],
               ' centroid: ', all_dynamics[3], ' spin_fric: ', all_dynamics[7])
+
+        self.explore_radius = 0.1
+
+
+        # populate start poses for small probing in opposite directions
+        self.start_configs = []
+        # generate the start poses 
+        jmax = (self.init_prods+1) // 2
+        kmax = 2 if self.init_prods > 1 else 1
+        dth = 2*np.pi / self.init_prods
+        for j in range(jmax):
+            for k in range(kmax):
+                i = j + k * (self.init_prods//2)
+                start_pos = np.array([self.center_world[0] + self.explore_radius*np.cos(i*dth), 
+                                self.center_world[1] + self.explore_radius*np.sin(i*dth), self.length])
+                direc = np.array([-np.cos(i*dth), -np.sin(i*dth), 0.0])
+                angle = i*dth + np.pi/2
+                self.start_configs.append([start_pos, direc, angle])
+
+        urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/shapes/pusher.urdf"
+
+        self.pusher_pose = self.start_configs[0][0]
+        self.pusher = p.loadURDF(urdf_file, self.pusher_pose)
+        self.numJoints = p.getNumJoints(self.pusher)
+        print('self.numJoints: ', self.numJoints)
+        p.changeDynamics(self.pusher, 0, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
+        p.changeDynamics(self.pusher, 1, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
+        self.cid = p.createConstraint(self.pusher, -1, -1, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0, 0], self.pusher_pose)
 
         # input('Click Enter!')
 
@@ -170,90 +194,97 @@ class Sim():
             filename = 'all_contact_shape=%s_rep=%04d' % (self.shape_id, num)
             jsonfilename = dir_base+'/%s.json' % filename
 
-        self.direc = np.array([0, 1.0, 0.0])
-        step_size = 1.0e-3
-        while True:
-            # time.sleep(1./240.)
+        # self.direc = np.array([0, 1.0, 0.0])
+        step_size = 2.0e-3
+        counter = 0
 
-            pusher_pos = self.observe_block(self.pusher) + self.direc*step_size
-
-            # limitForce = self.shape_mass*10*0.8
-            # print(limitForce)
-            if (self.contact_count > 0):
-                if not self.hasContact[0, self.contact_count - 1]:
-                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.05]) ## anti clock
-                # elif not self.hasContact[self.contact_count - 1, 1]:
-                #     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.1]) ## clock
-            else:
-                orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2]]) ## ee orientation
-            p.changeConstraint(self.cid, jointChildPivot=[pusher_pos[0],  pusher_pos[1], self.length], jointChildFrameOrientation=orn, maxForce=5)
-
+        for i, (start_pos, self.direc, push_angle) in enumerate(self.start_configs):
+            print("i: ", i, "start_pos: ", start_pos, "self.direc: ", self.direc)
+            orn = p.getQuaternionFromEuler([0, 0, push_angle]) ## ee orientation
+            p.resetBasePositionAndOrientation(self.pusher, start_pos, orn)
             p.stepSimulation()
-            # pdb.set_trace()
-            contactInfo_1 = p.getContactPoints(self.box, self.pusher, linkIndexA= -1, linkIndexB= 0)
-            contactInfo_2 = p.getContactPoints(self.box, self.pusher, linkIndexA= -1, linkIndexB= 1)
+            local_counter = 0
+            while True:
 
-            box_pos = self.observe_block(self.box)
-            pusher_pos_1 = self.observe_block(self.pusher, 0)  
-            pusher_pos_2 = self.observe_block(self.pusher, 1)  
+                time.sleep(1./240.)
 
-            # get the net contact force between robot and block
-            if ((len(contactInfo_1)>0) or (len(contactInfo_2)>0)):
+                pusher_pos = self.observe_block(self.pusher) + self.direc*step_size
+
+                # limitForce = self.shape_mass*10*0.8
+                # print(limitForce)
+
+                p.changeConstraint(self.cid, jointChildPivot=[pusher_pos[0],  pusher_pos[1], self.length], jointChildFrameOrientation=orn, maxForce=10)
+
+                p.stepSimulation()
                 # pdb.set_trace()
-                self.pusher_position[0, self.contact_count, :] = pusher_pos_1[0:2]
-                self.pusher_position[1, self.contact_count, :] = pusher_pos_2[0:2]
-                self.pose_true[self.contact_count, :] = box_pos
-                
-                # 1st pusher
-                f_c_temp_1 = f_c_temp_2 = 0
-                if (len(contactInfo_1)>0):
-                    for c in range(len(contactInfo_1)):
-                        f_c_temp_1 += contactInfo_1[c][9]
-                    
-                    self.contactForce[0, self.contact_count] = f_c_temp_1
-                    self.contactPt[0, self.contact_count, :] =  contactInfo_1[0][5][:2]
-                    self.contactNormal[0, self.contact_count, :] = contactInfo_1[0][7][:2]
-                    self.hasContact[0, self.contact_count] = True
+                contactInfo_1 = p.getContactPoints(self.box, self.pusher, linkIndexA= -1, linkIndexB= 0)
+                contactInfo_2 = p.getContactPoints(self.box, self.pusher, linkIndexA= -1, linkIndexB= 1)
 
-                # 2nd pusher 
-                if (len(contactInfo_2)>0):
-                    for c in range(len(contactInfo_2)):
-                        f_c_temp_2 += contactInfo_2[c][9]
-                    
-                    self.contactForce[1, self.contact_count] = f_c_temp_2
-                    self.contactPt[1, self.contact_count, :] =  contactInfo_2[0][5][:2]
-                    self.contactNormal[1, self.contact_count, :] = contactInfo_2[0][7][:2]
-                    self.hasContact[1, self.contact_count] = True
+                box_pos = self.observe_block(self.box)
+                pusher_pos_1 = self.observe_block(self.pusher, 0)  
+                pusher_pos_2 = self.observe_block(self.pusher, 1)  
 
-                if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]:
-                    good_normal = (self.contactNormal[0, self.contact_count, :] + self.contactNormal[1, self.contact_count, :])/2.0
-                    # print('good normal: ', good_normal)
-                    self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
-                elif self.hasContact[0, self.contact_count]:
-                    good_normal = self.contactNormal[0, self.contact_count, :]
-                    self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
-                # else:
-                #     good_normal = self.contactNormal[self.contact_count, 2:4]
-                #     self.direc = np.dot(tfm.euler_matrix(0,0,2) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]  
+                # get the net contact force between robot and block
+                if ((len(contactInfo_1)>0) or (len(contactInfo_2)>0)):
+                    # pdb.set_trace()
+                    self.pusher_position[0, self.contact_count, :] = pusher_pos_1[0:2]
+                    self.pusher_position[1, self.contact_count, :] = pusher_pos_2[0:2]
+                    self.pose_true[self.contact_count, :] = box_pos
+                    
+                    # 1st pusher
+                    f_c_temp_1 = f_c_temp_2 = 0
+                    if (len(contactInfo_1)>0):
+                        for c in range(len(contactInfo_1)):
+                            f_c_temp_1 += contactInfo_1[c][9]
                         
-                if self.plot and self.contact_count % 10 == 0:
-                    self.plotter(self.contact_count)
-                
-                self.contact_count += 1
+                        if f_c_temp_1 > self.threshold:
+                            local_counter += 1
+                            self.contactForce[0, self.contact_count] = f_c_temp_1
+                            self.contactPt[0, self.contact_count, :] =  contactInfo_1[0][5][:2]
+                            self.contactNormal[0, self.contact_count, :] = contactInfo_1[0][7][:2]
+                            self.hasContact[0, self.contact_count] = True
 
-            # 3.5 break if we collect enough
-            if self.contact_count == self.limit:
-                break
-        
-        skip = 1
+                    # 2nd pusher 
+                    if (len(contactInfo_2)>0):
+                        for c in range(len(contactInfo_2)):
+                            f_c_temp_2 += contactInfo_2[c][9]
+                        
+                        if f_c_temp_2 > self.threshold:
+                            local_counter += 1
+                            self.contactForce[1, self.contact_count] = f_c_temp_2
+                            self.contactPt[1, self.contact_count, :] =  contactInfo_2[0][5][:2]
+                            self.contactNormal[1, self.contact_count, :] = contactInfo_2[0][7][:2]
+                            self.hasContact[1, self.contact_count] = True
+
+                    # if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]:
+                    #     good_normal = (self.contactNormal[0, self.contact_count, :] + self.contactNormal[1, self.contact_count, :])/2.0
+                    #     # print('good normal: ', good_normal)
+                    #     self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
+                    # elif self.hasContact[0, self.contact_count]:
+                    #     good_normal = self.contactNormal[0, self.contact_count, :]
+                    #     self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
+                    # else:
+                    #     good_normal = self.contactNormal[self.contact_count, 2:4]
+                    #     self.direc = np.dot(tfm.euler_matrix(0,0,2) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]  
+                            
+                    if self.plot and self.contact_count % 1 == 0:
+                        self.plotter(self.contact_count)
+                    
+                    self.contact_count += 1
+
+                # 3.5 break if we collect enough
+                if local_counter >= 100:
+                    counter+=local_counter
+                    print("counter: ", counter)
+                    break
 
         with open(jsonfilename, 'w') as outfile:
-            json.dump({'has_contact': self.hasContact[:, ::skip].tolist(),
-                        'contact_force': self.contactForce[:, ::skip].tolist(),
-                        'contact_normal': self.contactNormal[:, ::skip, :].tolist(),
-                        'contact_point': self.contactPt[:, ::skip, :].tolist(),
-                        'pose_true': self.pose_true[::skip, :].tolist(),
-                        'pusher': self.pusher_position[:, ::skip, :].tolist(),
+            json.dump({'has_contact': self.hasContact[:, :counter].tolist(),
+                        'contact_force': self.contactForce[:, :counter].tolist(),
+                        'contact_normal': self.contactNormal[:, :counter, :].tolist(),
+                        'contact_point': self.contactPt[:, :counter, :].tolist(),
+                        'pose_true': self.pose_true[:counter, :].tolist(),
+                        'pusher': self.pusher_position[:, :counter, :].tolist(),
                         '__title__': colname, 
                         "shape_id": self.shape_id,
                         "probe_radius": self.probe_radius,
