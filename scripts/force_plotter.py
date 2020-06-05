@@ -79,16 +79,23 @@ def run(shape):
 
   # transform contact_points and contact_forces to poses 
   length = len(obj_poses) - 1
+  print('length:', length)
   ls_c = 0.0344 # pressure distribution constant
   err = np.zeros((length, 2))
   comps1 = np.zeros((length, 2))
   comps2 = np.zeros((length, 2))
   f_vec = np.zeros((length, 3))
 
+  v_trans = np.zeros((length))
+  v_rot = np.zeros((length))
+
   v_vec = np.zeros((length, 3))
   for i in range(length):
       x_now = obj_poses[i,:]
       x_next = obj_poses[i + 1,:]
+
+      v_trans[i] = np.linalg.norm(x_now[0:2] - x_next[0:2])
+      v_rot[i] = np.linalg.norm(x_now[2] - x_next[2])
 
       f = np.array([0, 0])
       m = 0
@@ -144,12 +151,9 @@ def run(shape):
   plt.legend()
 
   ax1 = plt.subplot(4, 1, 3)
-  x = err[:,0]
-  x = x[~is_outlier(x)]
-  length = len(x)
-  plt.plot(range(length), x, color='black', linestyle='-', linewidth=1, label='v_x * m - f_x * omega * c^2')
-  plt.plot(range(length), comps1[~is_outlier(err[:,0]), 0], color='green', linestyle='--', linewidth=1, label='v_x * m ')
-  plt.plot(range(length), comps1[~is_outlier(err[:,0]), 1], color='blue', linestyle='--', linewidth=1, label='f_x * omega * c^2')
+  plt.plot(range(length), err[:,0], color='black', linestyle='-', linewidth=1, label='v_x * m - f_x * omega * c^2')
+  plt.plot(range(length), comps1[:, 0], color='green', linestyle='--', linewidth=1, label='v_x * m ')
+  plt.plot(range(length), comps1[:, 1], color='blue', linestyle='--', linewidth=1, label='f_x * omega * c^2')
   # plt.axhline(y=0.0, color='y', linestyle='--')
   plt.xlabel('time step')
   plt.ylabel('Err X')
@@ -157,15 +161,15 @@ def run(shape):
   plt.grid(True)
   plt.legend()
 
+  print("mean vel: ", np.mean(v_trans))
+  print("mean rot: ", np.mean(v_rot))
+
   ax1_ylim = ax1.get_ylim()[1] - ax1.get_ylim()[0]
 
   ax2 = plt.subplot(4, 1, 4)
-  x = err[:,1]
-  x = x[~is_outlier(x)]
-  length = len(x)
-  plt.plot(range(length), x, color='black', linestyle='-', linewidth=1, label='v_y * m - f_y * omega * c^2')
-  plt.plot(range(length), comps2[~is_outlier(err[:,1]), 0], color='green', linestyle='--', linewidth=1, label='v_y * m')
-  plt.plot(range(length), comps2[~is_outlier(err[:,1]), 1], color='blue', linestyle='--', linewidth=1, label='f_y * omega * c^2')
+  plt.plot(range(length), err[:,1], color='black', linestyle='-', linewidth=1, label='v_y * m - f_y * omega * c^2')
+  plt.plot(range(length), comps2[:, 0], color='green', linestyle='--', linewidth=1, label='v_y * m')
+  plt.plot(range(length), comps2[:, 1], color='blue', linestyle='--', linewidth=1, label='f_y * omega * c^2')
   # plt.axhline(y=0.0, color='y', linestyle='--')
   plt.xlabel('time step')
   plt.ylabel('Err Y')
@@ -189,7 +193,7 @@ def run(shape):
   err_y = np.zeros((len(c_vals)))
   k = 0
   for ls_c in c_vals:
-    print('k: ', k, ' c: ', ls_c)
+    # print('k: ', k, ' c: ', ls_c)
     for i in range(length):
       x_now = obj_poses[i,:]
       x_next = obj_poses[i + 1,:]

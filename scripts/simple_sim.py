@@ -62,7 +62,7 @@ class Sim():
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 5000
+        self.limit = 1500
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.00313
         self.length = 0.115
@@ -181,7 +181,7 @@ class Sim():
             # print(limitForce)
             if (self.contact_count > 0):
                 if not self.hasContact[0, self.contact_count - 1]:
-                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.05]) ## anti clock
+                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.1]) ## anti clock
                 # elif not self.hasContact[self.contact_count - 1, 1]:
                 #     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.1]) ## clock
             else:
@@ -228,10 +228,10 @@ class Sim():
                 if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]:
                     good_normal = (self.contactNormal[0, self.contact_count, :] + self.contactNormal[1, self.contact_count, :])/2.0
                     # print('good normal: ', good_normal)
-                    self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
+                    self.direc = np.dot(tfm.euler_matrix(0,0,1.7*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
                 elif self.hasContact[0, self.contact_count]:
                     good_normal = self.contactNormal[0, self.contact_count, :]
-                    self.direc = np.dot(tfm.euler_matrix(0,0,2*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
+                    self.direc = np.dot(tfm.euler_matrix(0,0,1.7*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
                 # else:
                 #     good_normal = self.contactNormal[self.contact_count, 2:4]
                 #     self.direc = np.dot(tfm.euler_matrix(0,0,2) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]  
