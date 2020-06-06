@@ -43,10 +43,12 @@ colname =  [
  ]
 
 class Sim():
-    def __init__(self, shape_id, withVis=False):
+    def __init__(self, shape_id, withVis=False, withForcePlot = False):
 
         self.start_time = time.time()
         self.plot = withVis
+        self.wfp = withForcePlot
+
         # connect to pybullet server
         p.connect(p.GUI)
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
@@ -62,12 +64,12 @@ class Sim():
         p.setGravity(0, 0, -10)
 
         # set simulation length
-        self.limit = 1500
+        self.limit = 3000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.00313
         self.length = 0.115
 
-        self.pusher_pose = [0, -(self.probe_radius + 0.06), self.length]
+        self.pusher_pose = [0, -(self.probe_radius + 0.08), self.length]
         # self.pusher_pose_2 = [0.02, -(self.probe_radius + 0.06), 0.01]
 
         # pre-define the trajectory/force vectors
@@ -260,7 +262,8 @@ class Sim():
                         "offset": self.center_world, 
                         "limit": self.limit}, outfile, sort_keys=True, indent=1)      
         print('file: ', jsonfilename)
-        fp.run(jsonfilename)
+        if self.wfp:
+            fp.run(jsonfilename)
         return
 
     def plotter(self, i): 
@@ -325,6 +328,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--shape", type=str, default="rect1", help="Shape ID (eg: rect1, ellip2, hex)")
     parser.add_argument("--vis", type=int, default="0", help="Visualize 2D pushing")
+    parser.add_argument("--wfp", type=int, default="0", help="Plot force profile")
     args = parser.parse_args()
     s = Sim(args.shape, bool(args.vis))
     s.simulate()
