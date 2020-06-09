@@ -179,13 +179,11 @@ class Sim():
 
             pusher_pos = self.observe_block(self.pusher) + self.direc*step_size
 
-            # limitForce = self.shape_mass*10*0.8
-            # print(limitForce)
             if (self.contact_count > 0):
                 if not self.hasContact[0, self.contact_count - 1]:
                     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] + 0.1]) ## anti clock
-                # elif not self.hasContact[self.contact_count - 1, 1]:
-                #     orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.1]) ## clock
+                elif (self.contact_count >  10) and not any(self.hasContact[1, self.contact_count - 10:self.contact_count - 1]):
+                    orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2] - 0.01]) ## clock
             else:
                 orn = p.getQuaternionFromEuler([0, 0, pusher_pos[2]]) ## ee orientation
             p.changeConstraint(self.cid, jointChildPivot=[pusher_pos[0],  pusher_pos[1], self.length], jointChildFrameOrientation=orn, maxForce=5)
@@ -229,7 +227,6 @@ class Sim():
 
                 if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]:
                     good_normal = (self.contactNormal[0, self.contact_count, :] + self.contactNormal[1, self.contact_count, :])/2.0
-                    # print('good normal: ', good_normal)
                     self.direc = np.dot(tfm.euler_matrix(0,0,1.7*np.pi/3) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]
                 elif self.hasContact[0, self.contact_count]:
                     good_normal = self.contactNormal[0, self.contact_count, :]
