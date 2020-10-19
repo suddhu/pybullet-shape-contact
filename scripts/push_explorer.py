@@ -51,7 +51,7 @@ class Sim():
     def __init__(self, shape_id, withVis=False, withPeturb = True, withForcePlot = False):
 
         self.start_time = time.time()
-        self.plot = withVis
+        self.plot = True
         self.wfp = withForcePlot
 
         # connect to pybullet server
@@ -71,10 +71,10 @@ class Sim():
         # print(self.center_world)
 
         # set gravity
-        p.setGravity(0, 0, -10)
+        p.setGravity(0, 0, -9.8)
 
         # set simulation length
-        self.limit = 5000
+        self.limit = 4000
         self.threshold = 0.000  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.00313
         self.length = 0.115
@@ -86,6 +86,7 @@ class Sim():
         self.timer = np.zeros((self.limit,))
         self.pusher_position = np.zeros((2, self.limit, 2))
         self.contactPt = np.zeros((2, self.limit, 2))
+        self.contactPtEngine = np.zeros((2, self.limit, 2))
         self.contactForce = np.zeros((2, self.limit))
         self.contactNormal = np.zeros((2, self.limit, 2))
         self.hasContact = np.full((2, self.limit), False)
@@ -126,8 +127,8 @@ class Sim():
         self.cid = p.createConstraint(self.pusher, -1, -1, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0, 0], self.pusher_pose)
         self.numJoints = p.getNumJoints(self.pusher)
 
-        p.changeDynamics(self.pusher, 0, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
-        p.changeDynamics(self.pusher, 1, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-6)
+        p.changeDynamics(self.pusher, 0, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-10)
+        p.changeDynamics(self.pusher, 1, mass=self.shape_mass, lateralFriction=1.0, collisionMargin = 1e-10)
 
         urdf_file = "/home/suddhu/software/pybullet-shape-contact/models/ground_plane/ground_plane.urdf"
 
@@ -165,6 +166,12 @@ class Sim():
             # print('vanorm = {}'.format(np.linalg.norm(va)))
             return False
         return True
+
+    def computeContactPoint(self, pusher_pos, contact_normal):
+        contact_normal_dir = np.array(contact_normal) / np.linalg.norm(np.array(contact_normal))
+        pusher_pos[0] += contact_normal_dir[0]*self.probe_radius
+        pusher_pos[1] += contact_normal_dir[1]*self.probe_radius
+        return pusher_pos
 
     def simulate(self):
         self.contact_count = 0
@@ -224,9 +231,11 @@ class Sim():
                     for c in range(len(contactInfo_1)):
                         f_c_temp_1 += contactInfo_1[c][9]
                     
+
                     self.contactForce[0, self.contact_count] = f_c_temp_1
-                    self.contactPt[0, self.contact_count, :] =  contactInfo_1[0][5][:2]
                     self.contactNormal[0, self.contact_count, :] = contactInfo_1[0][7][:2]
+                    self.contactPtEngine[0, self.contact_count, :] =  contactInfo_1[0][5][:2]
+                    self.contactPt[0, self.contact_count, :] = self.computeContactPoint(pusher_pos_1[0:2], self.contactNormal[0, self.contact_count, :])
                     self.hasContact[0, self.contact_count] = True
 
                 # 2nd pusher 
@@ -235,8 +244,9 @@ class Sim():
                         f_c_temp_2 += contactInfo_2[c][9]
                     
                     self.contactForce[1, self.contact_count] = f_c_temp_2
-                    self.contactPt[1, self.contact_count, :] =  contactInfo_2[0][5][:2]
                     self.contactNormal[1, self.contact_count, :] = contactInfo_2[0][7][:2]
+                    self.contactPtEngine[1, self.contact_count, :] =  contactInfo_2[0][5][:2]
+                    self.contactPt[1, self.contact_count, :] = self.computeContactPoint(pusher_pos_2[0:2], self.contactNormal[1, self.contact_count, :])
                     self.hasContact[1, self.contact_count] = True
 
                 if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]: #both
@@ -249,7 +259,7 @@ class Sim():
                 #     good_normal = self.contactNormal[self.contact_count, 2:4]
                 #     self.direc = np.dot(tfm.euler_matrix(0,0,2) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]  
                         
-                if self.plot and self.contact_count % 10 == 0:
+                if self.plot and self.contact_count % 200 == 0:
                     self.plotter(self.contact_count)
                 
                 self.contact_count += 1
@@ -328,13 +338,15 @@ class Sim():
 
         # 2: plot contact point 
         if self.hasContact[0][i]:
-            ax.plot(self.contactPt[0][i][0], self.contactPt[0][i][1], 'ko',  markersize=6)
+            ax.plot(self.contactPt[0][i][0], self.contactPt[0][i][1], 'ko',  markersize=3)
+            ax.plot(self.contactPtEngine[0][i][0], self.contactPtEngine[0][i][1], 'bo',  markersize=3)
             ax.arrow(self.contactPt[0][i][0], self.contactPt[0][i][1], 
                 self.contactNormal[0][i][0]*0.02, self.contactNormal[0][i][1]*0.02, 
                 head_width=0.001, head_length=0.01, fc='y', ec='g')
 
         if self.hasContact[1][i]:
-            ax.plot(self.contactPt[1][i][0], self.contactPt[1][i][1], 'ko',  markersize=6)
+            ax.plot(self.contactPt[1][i][0], self.contactPt[1][i][1], 'ko',  markersize=3)
+            ax.plot(self.contactPtEngine[1][i][0], self.contactPtEngine[1][i][1], 'bo',  markersize=3)
             ax.arrow(self.contactPt[1][i][0], self.contactPt[1][i][1], 
                 self.contactNormal[1][i][0]*0.02, self.contactNormal[1][i][1]*0.02, 
                 head_width=0.001, head_length=0.01, fc='y', ec='g')
