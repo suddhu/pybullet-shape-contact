@@ -1,4 +1,5 @@
 # pybullet-shape-contact
+![hex](/media/hex.gif) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ![kuka](/media/kuka.gif)
 
 Object shape exploration pybullet simulator for shape and pose recovery work. Codebase setup with a little help from my friends: [public-push-est](https://github.com/mcubelab/push-est-public), and [pybullet-kuka-block-push](https://github.com/Nima-Fazeli/pybullet-kuka-block-push). Used to generate simulation results for the paper [Tactile SLAM: Real-time inference of shape and pose from planar pushing](https://arxiv.org/pdf/2011.07044.pdf).
 
