@@ -48,11 +48,12 @@ def mkdir(directory):
         os.makedirs(directory)
 
 class Sim():
-    def __init__(self, shape_id, withVis=False, withPeturb = True, withForcePlot = False):
+    def __init__(self, shape_id, withVis=False, withPeturb = True, withSave = True, withForcePlot = False):
 
         self.start_time = time.time()
         self.plot = True
         self.wfp = withForcePlot
+        self.save = withSave
 
         # connect to pybullet server
         if withVis:
@@ -75,7 +76,7 @@ class Sim():
 
         # set simulation length
         self.limit = 4000
-        self.threshold = 0.000  # the threshold force for contact, need to be tuned
+        self.threshold = 0.1  # the threshold force for contact, need to be tuned
         self.probe_radius = 0.00313
         self.length = 0.115
 
@@ -112,7 +113,7 @@ class Sim():
         self.box = p.loadURDF(urdf_file, [self.center_world[0], self.center_world[1], 0.01], p.getQuaternionFromEuler([0,0,self.center_world[2]]) )
 
         p.changeDynamics(self.box, -1, mass=self.shape_mass, lateralFriction=fric,
-                         localInertiaDiagonal=shape_moment, collisionMargin = 1e-6)
+                         localInertiaDiagonal=shape_moment, collisionMargin = 1e-10)
 
         all_dynamics = p.getDynamicsInfo(self.box, -1)
         # print('file: ', urdf_file, '\n','mass: ', all_dynamics[0],
@@ -135,7 +136,7 @@ class Sim():
         # add plane to push on (slightly below the base of the robot)
         self.planeId = p.loadURDF(urdf_file, [0, 0, 0], useFixedBase=True)
 
-        p.changeDynamics(self.planeId, -1, lateralFriction=1.0, collisionMargin = 1e-6)
+        p.changeDynamics(self.planeId, -1, lateralFriction=1.0, collisionMargin = 1e-10)
 
         all_dynamics = p.getDynamicsInfo(self.planeId, -1)
 
@@ -231,23 +232,25 @@ class Sim():
                     for c in range(len(contactInfo_1)):
                         f_c_temp_1 += contactInfo_1[c][9]
                     
-
-                    self.contactForce[0, self.contact_count] = f_c_temp_1
-                    self.contactNormal[0, self.contact_count, :] = contactInfo_1[0][7][:2]
-                    self.contactPtEngine[0, self.contact_count, :] =  contactInfo_1[0][5][:2]
-                    self.contactPt[0, self.contact_count, :] = self.computeContactPoint(pusher_pos_1[0:2], self.contactNormal[0, self.contact_count, :])
-                    self.hasContact[0, self.contact_count] = True
+                    if f_c_temp_1 > self.threshold: 
+                        self.contactForce[0, self.contact_count] = f_c_temp_1
+                        self.contactNormal[0, self.contact_count, :] = contactInfo_1[0][7][:2]
+                        self.contactPtEngine[0, self.contact_count, :] =  contactInfo_1[0][5][:2]
+                        self.contactPt[0, self.contact_count, :] = self.computeContactPoint(pusher_pos_1[0:2], self.contactNormal[0, self.contact_count, :])
+                        print(np.linalg.norm(self.contactPt[0, self.contact_count, :] - self.pusher_position[0, self.contact_count, :]))
+                        self.hasContact[0, self.contact_count] = True
 
                 # 2nd pusher 
                 if (len(contactInfo_2)>0):
                     for c in range(len(contactInfo_2)):
                         f_c_temp_2 += contactInfo_2[c][9]
                     
-                    self.contactForce[1, self.contact_count] = f_c_temp_2
-                    self.contactNormal[1, self.contact_count, :] = contactInfo_2[0][7][:2]
-                    self.contactPtEngine[1, self.contact_count, :] =  contactInfo_2[0][5][:2]
-                    self.contactPt[1, self.contact_count, :] = self.computeContactPoint(pusher_pos_2[0:2], self.contactNormal[1, self.contact_count, :])
-                    self.hasContact[1, self.contact_count] = True
+                    if f_c_temp_2 > self.threshold: 
+                        self.contactForce[1, self.contact_count] = f_c_temp_2
+                        self.contactNormal[1, self.contact_count, :] = contactInfo_2[0][7][:2]
+                        self.contactPtEngine[1, self.contact_count, :] =  contactInfo_2[0][5][:2]
+                        self.contactPt[1, self.contact_count, :] = self.computeContactPoint(pusher_pos_2[0:2], self.contactNormal[1, self.contact_count, :])
+                        self.hasContact[1, self.contact_count] = True
 
                 if self.hasContact[0, self.contact_count] and self.hasContact[1, self.contact_count]: #both
                     good_normal = (self.contactNormal[0, self.contact_count, :] + self.contactNormal[1, self.contact_count, :])/2.0
@@ -259,31 +262,32 @@ class Sim():
                 #     good_normal = self.contactNormal[self.contact_count, 2:4]
                 #     self.direc = np.dot(tfm.euler_matrix(0,0,2) , np.multiply(-1,good_normal).tolist() + [0] + [1])[0:3]  
                         
-                if self.plot and self.contact_count % 200 == 0:
+                if self.plot and self.contact_count % 1 == 0:
                     self.plotter(self.contact_count)
                 
-                self.contact_count += 1
+                if self.hasContact[0, self.contact_count] or self.hasContact[1, self.contact_count]:
+                    self.contact_count += 1
 
             # 3.5 break if we collect enough
             if self.contact_count == self.limit:
                 break
         
         skip = 1
-
-        with open(jsonfilename, 'w') as outfile:
-            json.dump({'has_contact': self.hasContact[:, ::skip].tolist(),
-                        'contact_force': self.contactForce[:, ::skip].tolist(),
-                        'contact_normal': self.contactNormal[:, ::skip, :].tolist(),
-                        'contact_point': self.contactPt[:, ::skip, :].tolist(),
-                        'pose_true': self.pose_true[::skip, :].tolist(),
-                        'pusher': self.pusher_position[:, ::skip, :].tolist(),
-                        'time': self.timer[::skip].tolist(),
-                        '__title__': colname, 
-                        "shape_id": self.shape_id,
-                        "probe_radius": self.probe_radius,
-                        "offset": self.center_world.tolist(), 
-                        "limit": self.limit}, outfile, sort_keys=True, indent=1)      
-        print('file: ', jsonfilename)
+        if self.save:
+            with open(jsonfilename, 'w') as outfile:
+                json.dump({'has_contact': self.hasContact[:, ::skip].tolist(),
+                            'contact_force': self.contactForce[:, ::skip].tolist(),
+                            'contact_normal': self.contactNormal[:, ::skip, :].tolist(),
+                            'contact_point': self.contactPt[:, ::skip, :].tolist(),
+                            'pose_true': self.pose_true[::skip, :].tolist(),
+                            'pusher': self.pusher_position[:, ::skip, :].tolist(),
+                            'time': self.timer[::skip].tolist(),
+                            '__title__': colname, 
+                            "shape_id": self.shape_id,
+                            "probe_radius": self.probe_radius,
+                            "offset": self.center_world.tolist(), 
+                            "limit": self.limit}, outfile, sort_keys=True, indent=1)      
+            print('file: ', jsonfilename)
         if self.wfp:
             fp.run(jsonfilename)
         return
@@ -367,6 +371,8 @@ if __name__ == "__main__":
     parser.add_argument("--vis", type=int, default="0", help="Visualize 2D pushing")
     parser.add_argument("--wfp", type=int, default="0", help="Plot force profile")
     parser.add_argument("--peturb", type=int, default="1", help="Intial pose peturbation")
+    parser.add_argument("--save", type=int, default="1", help="Save data")
+
     args = parser.parse_args()
-    s = Sim(args.shape, bool(args.vis), bool(args.peturb))
+    s = Sim(args.shape, bool(args.vis), bool(args.peturb), bool(args.save))
     s.simulate()
